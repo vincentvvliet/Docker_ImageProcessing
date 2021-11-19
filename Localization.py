@@ -51,6 +51,7 @@ def plate_detection(image):
 
     return cropped
 
+
 def plotImage(img, title, cmapType=None):
     # Display image
     if (cmapType):

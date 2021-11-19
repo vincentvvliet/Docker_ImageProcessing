@@ -1,0 +1,11 @@
+.idea/
+.ipynb_checkpoints/
+__pycache__/
+venv/
+TrainingSet/
+
+.DS_Store
+Dockerfile
+runDockerLinux.sh
+runDockerMac.sh
+runJupyterNotebookServer.sh

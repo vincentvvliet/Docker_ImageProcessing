@@ -71,12 +71,10 @@ Hints:
 
 def segment_and_recognize(plate_imgs):
     recognized_plates = []
-    for image in test_images:
+    for image in plate_imgs:
         plotImage(image, give_label_two_scores(image))
         if give_label_two_scores(image) != AMBIGUOUS_RESULT:
             recognized_plates.append(image)
-
-    plotImage(test_image, give_label_two_scores(test_image))
 
     return recognized_plates
 

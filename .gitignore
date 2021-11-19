@@ -9,3 +9,4 @@ Dockerfile
 runDockerLinux.sh
 runDockerMac.sh
 runJupyterNotebookServer.sh
+evaluator.sh

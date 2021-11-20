@@ -11,7 +11,7 @@ character_set = {'B', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S'
 # letter_set = {'B', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S', 'T', 'V', 'X', 'Z'}
 # number_set = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'}
 reference_characters = {}
-path = "/TrainingSet/Categorie I/"
+path = "TrainingSet/Categorie I/"
 
 
 def plotImage(img, title=""):
@@ -72,6 +72,7 @@ Hints:
 def segment_and_recognize(plate_imgs):
     recognized_plates = []
     for image in plate_imgs:
+        # TODO crop image further to separate each letter & number
         plotImage(image, give_label_two_scores(image))
         if give_label_two_scores(image) != AMBIGUOUS_RESULT:
             recognized_plates.append(image)
@@ -95,11 +96,13 @@ def setup():
     cap = cv2.VideoCapture(path + "Video2_2.avi")
 
     # Choose a frame to work on
-    frameN = 42
+    frameN = 36
+    frame = 0
 
     for i in range(0, frameN):
         # Read the video frame by frame
         ret, frame = cap.read()
+        print(ret)
         # if we have no more frames end the loop
         if not ret:
             break
@@ -108,20 +111,45 @@ def setup():
     cap.release()
     cv2.destroyAllWindows()
 
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    plotImage(frame, "Frame")
+    # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    # plotImage(frame, "Frame")
 
-    test_images = []
-    test_images.append(frame)
-    segment_and_recognize(test_images)
+    # test_images = []
+    # test_images.append(frame)
+    # segment_and_recognize(test_images)
 
+    # Define color range
+    colorMin = np.array([10, 120, 100])
+    # colorMin = np.array([14, 110, 96])
+    colorMax = np.array([30, 255, 255])
+
+    # Segment only the selected color from the image and leave out all the rest (apply a mask)
+    hsi = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsi, colorMin, colorMax)
+
+    # Plot the masked image (where only the selected color is visible)
+    # plotImage(mask, "Masked image", "gray")
+    result = cv2.bitwise_and(frame, frame, mask=mask)
+    result = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+
+    # plotImage(result, "Result")
+
+    # Get coordinates of the plate
+    indices = []
+    for i, _ in enumerate(mask):
+        for j, _ in enumerate(mask[i]):
+            if mask[i][j] != 0:
+                indices.append([i, j])
+    indices = sorted(indices, key=lambda indices: indices[0])
+    minXY = indices[0]
+    maxXY = indices[-1]
+    cropped = result[minXY[0]:maxXY[0], minXY[1]:maxXY[1]]
+    plotImage(cropped, "Cropped")
 
 setup()
 
-# TODO segment all letters and numbers from single file with plate
 # for image in plate_imgs:
 #     plotImage(image, give_label_two_scores(image))
-# TODO all videos instead of only one
 # for i in range(2, 8):
 #     image_name = "Video" + str(i) + "_2.avi"
 #     test_images.append(loadImage("TrainingSet/Categorie I", image_name))

@@ -33,7 +33,7 @@ def plate_detection(image):
     # Plot the masked image (where only the selected color is visible)
     # plotImage(mask, "Masked image", "gray")
     result = cv2.bitwise_and(plate_imgs, plate_imgs, mask=mask)
-    result = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+    # result = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
 
     # plotImage(result, "Result")
 

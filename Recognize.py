@@ -92,6 +92,7 @@ def setup():
             reference_characters[char] = loadImage("SameSizeNumbers/", str(letter_counter) + ".bmp")
             letter_counter = letter_counter + 1
 
+    # TODO remove when done debugging
     # Capture frame with license plate
     cap = cv2.VideoCapture(path + "Video2_2.avi")
 

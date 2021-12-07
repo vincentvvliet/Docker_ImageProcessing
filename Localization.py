@@ -21,10 +21,9 @@ Hints:
 
 def plate_detection(image):
     plate_imgs = image
-
     # Define color range
-    colorMin = np.array([10, 100, 100])
-    colorMax = np.array([20, 255, 255])
+    colorMin = np.array([10, 60, 60])
+    colorMax = np.array([26, 255, 255])
 
     # Segment only the selected color from the image and leave out all the rest (apply a mask)
     hsi = cv2.cvtColor(plate_imgs, cv2.COLOR_BGR2HSV)
@@ -35,7 +34,7 @@ def plate_detection(image):
     result = cv2.bitwise_and(plate_imgs, plate_imgs, mask=mask)
     # result = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
 
-    # plotImage(result, "Result")
+    plotImage(result, "Result")
 
     # Get coordinates of the plate
     indices = []
@@ -47,7 +46,7 @@ def plate_detection(image):
     minXY = indices[0]
     maxXY = indices[-1]
     cropped = result[minXY[0]:maxXY[0], minXY[1]:maxXY[1]]
-    # plotImage(cropped, "Cropped")
+    plotImage(cropped, "Cropped")
 
     return cropped
 

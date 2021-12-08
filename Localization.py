@@ -30,12 +30,13 @@ def get_boundary_boxes(image):
     inwhite = False
     for i in range(0, len(image)):
         row = image[i]
+        haswhite = rowhaswhite(row)
         if inwhite:
-            if not rowhaswhite(row):
+            if not haswhite:
                 boxes[len(boxes)-1].append(i)
                 inwhite = False
         else:
-            if rowhaswhite(row):
+            if haswhite:
                 newbox = []
                 newbox.append(i)
                 boxes.append(newbox)
@@ -43,8 +44,8 @@ def get_boundary_boxes(image):
     
     # for each box, apply the same technique as above, but now in vertical direction and find the first and last column index
     for box in boxes:
-        if len(box) < 2:
-            box.append(len(image))
+        if len(box) == 1:
+            box.append(len(image)-1)
         inwhite = False
         for j in range(0, len(image[0])):
             allblack = True
@@ -64,12 +65,33 @@ def get_boundary_boxes(image):
             box.append(0)
             box.append(0)
         if len(box)%2 != 0:
-            box.append(len(image[0]))
+            box.append(len(image[0])-1)
 
 
-    return boxes
+    # store each box seperate with only four edges
+    for box in boxes:
+        index = 5
+        while index < len(box):
+            newbox = [box[0], box[1], box[index-1], box[index]]
+            boxes.append(newbox)
+            index += 2
 
-
+    # crop the new boxes
+    for box in boxes:
+        inwhite = False
+        for i in range(box[0], box[1]):
+            row = image[i][box[2]:box[3]]
+            haswhite = rowhaswhite(row)
+            if inwhite:
+                if not haswhite:
+                    box[1] = i
+                    inwhite = False
+            else:
+                if haswhite:
+                    box[0] = i
+                    inwhite = True
+    
+    return boxes   
 
 def plate_detection(image):
     plate_imgs = image
@@ -92,6 +114,10 @@ def plate_detection(image):
     result = cv2.dilate(result, np.ones((10,10)))
 
     # get all the boundary boxes 
+    for row in result:
+        for pixel in row:
+            if pixel != 0:
+                pixel = 255
     boxes = get_boundary_boxes(result)
 
     # get edges of the boundary box which shape is the closest to the 52cm by 11cm dutch license plate
@@ -99,29 +125,40 @@ def plate_detection(image):
     edges = []
     difference = float('inf')
     for box in boxes:
-        height = box[1]-box[0]
-        index = 3
-        while index < len(box):
-            width = box[index] - box[index-1]
-            diff = float(np.abs(float(widthdividedbyheight-float(width/height))))
-            if diff < difference:
-                difference = diff
-                edges = [box[0], box[1], box[index-1], box[index]]
-            index = index + 2
+        height = float(box[1]-box[0])
+        width = float(box[3]-box[2])
+        diff = float(np.abs(float(widthdividedbyheight-float(width/height))))
+        if diff < difference:
+            difference = diff
+            edges = [box[0], box[1], box[2], box[3]]
 
-
-    # color the chosen boundary box green
-    result = image
-    for i in range(edges[0], edges[1]):
-        result[i][edges[2]] = [0,255,0]
-        result[i][edges[3]] = [0,255,0]
-    for j in range(edges[2], edges[3]):
-        result[edges[0]][j] = [0,255,0]
-        result[edges[1]][j] = [0,255,0]
     
+    if len(edges) == 4:
+        # color the chosen boundary box green
+        result = image
+        for i in range(edges[0], edges[1]):
+            result[i][edges[2]] = [0,255,0]
+            result[i][edges[3]] = [0,255,0]
+        for j in range(edges[2], edges[3]):
+            result[edges[0]][j] = [0,255,0]
+            result[edges[1]][j] = [0,255,0]
+    
+    # VINCENT: dit onderste kan je uncommenten als je de masked image wil zien met alle boundary boxes getekent (comment dan wel even line 136-144 out)
+    # black = result
+    # for box in boxes:
+    #     for i in range(box[0], box[1]):
+    #         for j in box[2:]:
+    #             black[i][j-1] = 255
+    #     index = 3
+    #     while index < len(box):
+    #         for j in range(box[index-1], box[index]):
+    #             black[box[0]-1][j] = 255
+    #             black[box[1]-1][j] = 255
+    #         index = index + 2
+    # result = black
 
 
-
+    # VINCENT: dit onderste is oude code van jou
     # # Get coordinates of the plate
     # indices = []
     # for i, _ in enumerate(mask):
@@ -132,7 +169,6 @@ def plate_detection(image):
     # minXY = indices[0]
     # maxXY = indices[-1]
     # cropped = result[minXY[0]:maxXY[0], minXY[1]:maxXY[1]]
-
     # print(cropped[0][0])
     # # for row in cropped:
     # #     for pixel in row:

@@ -19,20 +19,23 @@ cap = cv2.VideoCapture('dummytestvideo.avi')
 if (cap.isOpened() == False):
     print("Error opening video stream or file")
 
+count = -1
 # Read until video is completed
 while cap.isOpened():
+    count += 1
     # Capture frame-by-frame
     ret, frame = cap.read()
     if ret == True:
-        # dummy arguments for sample frequency and save_path should be changed
-        detections = plate_detection(frame)
+        if count % 30 == 0:
+            print(count)
+            # dummy arguments for sample frequency and save_path should be changed
+            detections = plate_detection(frame)
+            # Display the resulting frame
+            cv2.imshow("detection", detections) #replace with detections
 
-        # Display the resulting frame
-        cv2.imshow('Frame', detections) #replace with detections
-
-        # Press Q on keyboard to  exit
-        if cv2.waitKey(25) & 0xFF == ord('q'):
-            break
+            # Press Q on keyboard to  exit
+            if cv2.waitKey(25) & 0xFF == ord('q'):
+                break
 
     # Break the loop
     else:

@@ -94,7 +94,7 @@ def setup():
 
     # TODO remove when done debugging
     # Capture frame with license plate
-    cap = cv2.VideoCapture(path + "Video2_2.avi")
+    cap = cv2.VideoCapture(path + "Video12_2.avi")
 
     # Choose a frame to work on
     frameN = 36
@@ -111,7 +111,6 @@ def setup():
     # When everything done, release the capture
     cap.release()
     cv2.destroyAllWindows()
-
     # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     # plotImage(frame, "Frame")
 
@@ -145,10 +144,10 @@ def setup():
     minXY = indices[0]
     maxXY = indices[-1]
     cropped = result[minXY[0]:maxXY[0], minXY[1]:maxXY[1]]
-    plotImage(cropped, "Cropped")
+    # plotImage(cropped, "Cropped")
+
 
 setup()
-
 # for image in plate_imgs:
 #     plotImage(image, give_label_two_scores(image))
 # for i in range(2, 8):

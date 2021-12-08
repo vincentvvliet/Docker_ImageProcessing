@@ -10,3 +10,4 @@ runDockerLinux.sh
 runDockerMac.sh
 runJupyterNotebookServer.sh
 evaluator.sh
+test.py

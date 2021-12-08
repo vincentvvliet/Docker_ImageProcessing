@@ -26,12 +26,14 @@ while cap.isOpened():
     # Capture frame-by-frame
     ret, frame = cap.read()
     if ret == True:
-        if count % 30 == 0:
+        if count % 24 == 0:
             print(count)
             # dummy arguments for sample frequency and save_path should be changed
             detections = plate_detection(frame)
+
             # Display the resulting frame
-            cv2.imshow("detection", detections) #replace with detections
+            cv2.imshow("detection", detections)  # replace with detections
+            cv2.imwrite("Results/frame_%d.jpg" % count, detections)
 
             # Press Q on keyboard to  exit
             if cv2.waitKey(25) & 0xFF == ord('q'):

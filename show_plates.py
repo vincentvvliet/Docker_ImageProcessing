@@ -26,7 +26,7 @@ while cap.isOpened():
     # Capture frame-by-frame
     ret, frame = cap.read()
     if ret == True:
-        if count % 24 == 0:
+        if count % 24 == 0 and count < 1730:
             print(count)
             # dummy arguments for sample frequency and save_path should be changed
             detections = plate_detection(frame)

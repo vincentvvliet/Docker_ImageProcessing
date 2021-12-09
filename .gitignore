@@ -3,6 +3,7 @@
 __pycache__/
 venv/
 TrainingSet/
+Results/
 
 .DS_Store
 Dockerfile

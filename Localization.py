@@ -17,7 +17,12 @@ Hints:
 	1. You may need to define other functions, such as crop and adjust function
 	2. You may need to define two ways for localizing plates(yellow or other colors)
 """
+
+
 def get_boundary_boxes(image):
+    # delete some noise 
+    image = cv2.erode(image, np.ones((10, 10)))
+    image = cv2.dilate(image, np.ones((10, 10)))
 
     def rowhaswhite(row):
         for pixel in row:
@@ -27,132 +32,159 @@ def get_boundary_boxes(image):
 
     # split image horizontal and store both the index of the first row of each box and the index of the last row of each box
     boxes = []
-    inWhite = False
+    inwhite = False
     for i in range(0, len(image)):
         row = image[i]
-        hasWhite = rowhaswhite(row)
-        if inWhite:
-            if not hasWhite:
-                boxes[len(boxes)-1].append(i)
-                inWhite = False
+        haswhite = rowhaswhite(row)
+        if inwhite:
+            if not haswhite:
+                boxes[len(boxes) - 1].append(i)
+                inwhite = False
         else:
-            if hasWhite:
-                newBox = []
-                newBox.append(i)
-                boxes.append(newBox)
-                inWhite = True
-    
+            if haswhite:
+                newbox = []
+                newbox.append(i)
+                boxes.append(newbox)
+                inwhite = True
+
     # for each box, apply the same technique as above, but now in vertical direction and find the first and last column index
     for box in boxes:
         if len(box) == 1:
-            box.append(len(image)-1)
-        inWhite = False
+            box.append(len(image) - 1)
+        inwhite = False
         for j in range(0, len(image[0])):
-            allBlack = True
+            allblack = True
             for i in range(box[0], box[1]):
                 if image[i][j] != 0:
-                    allBlack = False
+                    allblack = False
                     break
-            if inWhite:
-                if allBlack:
+            if inwhite:
+                if allblack:
                     box.append(j)
-                    inWhite = False
+                    inwhite = False
             else:
-                if not allBlack:
+                if not allblack:
                     box.append(j)
-                    inWhite = True
+                    inwhite = True
         if len(box) == 2:
             box.append(0)
             box.append(0)
-        if len(box)%2 != 0:
-            box.append(len(image[0])-1)
-
+        if len(box) % 2 != 0:
+            box.append(len(image[0]) - 1)
 
     # store each box seperate with only four edges
     for box in boxes:
         index = 5
         while index < len(box):
-            newBox = [box[0], box[1], box[index-1], box[index]]
-            boxes.append(newBox)
+            newbox = [box[0], box[1], box[index - 1], box[index]]
+            boxes.append(newbox)
             index += 2
 
     # crop the new boxes
     for box in boxes:
-        inWhite = False
+        inwhite = False
         for i in range(box[0], box[1]):
             row = image[i][box[2]:box[3]]
-            hasWhite = rowhaswhite(row)
-            if inWhite:
-                if not hasWhite:
+            haswhite = rowhaswhite(row)
+            if inwhite:
+                if not haswhite:
                     box[1] = i
-                    inWhite = False
+                    inwhite = False
             else:
-                if hasWhite:
+                if haswhite:
                     box[0] = i
-                    inWhite = True
-    
-    return boxes   
+                    inwhite = True
 
-def plate_detection(image):
-    plate_imgs = image
+    return boxes
+
+
+def choose_final_box(boxes):
+    # choose boundary box which shape is the closest to the 52cm by 11cm dutch license plate
+    widthdividedbyheight = float(52 / 11)
+    finalbox = []
+    difference = float('inf')
+    for box in boxes:
+        height = float(box[1] - box[0])
+        width = float(box[3] - box[2])
+        diff = float(np.abs(float(widthdividedbyheight - float(width / height))))
+        if diff < difference:
+            difference = diff
+            finalbox = [box[0], box[1], box[2], box[3]]
+    return finalbox
+
+
+def apply_yellow_mask(image):
     # Define color range
     colorMin = np.array([10, 60, 60])
     colorMax = np.array([26, 255, 255])
 
     # Segment only the selected color from the image and leave out all the rest (apply a mask)
-    hsi = cv2.cvtColor(plate_imgs, cv2.COLOR_BGR2HSV)
+    hsi = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsi, colorMin, colorMax)
 
-    result = cv2.bitwise_and(plate_imgs, plate_imgs, mask=mask)
-    result = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
-    result = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
-    # plotImage(result, "Masked image", "gray")
+    masked = cv2.bitwise_and(image, image, mask=mask)
+    masked = cv2.cvtColor(masked, cv2.COLOR_HSV2RGB)
+    return masked
 
-    # delete some noise 
-    result = cv2.erode(result, np.ones((10,10)))
-    result = cv2.dilate(result, np.ones((10,10)))
 
-    # plotImage(result, "Masked image after morphological operations", "gray")
+def plate_detection(image):
+    masked = apply_yellow_mask(image)
+    gray = cv2.cvtColor(masked, cv2.COLOR_BGR2GRAY)
 
     # get all the boundary boxes 
-    boxes = get_boundary_boxes(result)
+    boxes = get_boundary_boxes(gray)
+    # choose final boundary box
+    box = choose_final_box(boxes)
 
-    # get edges of the boundary box which shape is the closest to the 52cm by 11cm dutch license plate
-    ratio = float(52/11)
-    edges = []
-    difference = float('inf')
-    for box in boxes:
-        height = float(box[1]-box[0])
-        width = float(box[3]-box[2])
-        diff = float(np.abs(float(ratio-float(width/height))))
-        if diff < difference:
-            difference = diff
-            edges = [box[0], box[1], box[2], box[3]]
+    if len(box) != 4:
+        return np.zeros((len(image), len(image[0])))
+
+    for i in range(0, len(gray)):
+        for j in range(0, len(gray[0])):
+            if i < box[0] or i > box[1] or j < box[2] or j > box[3]:
+                gray[i][j] = 0
+    return gray
 
 
-    if len(edges) == 4:
+def draw_green_box(image):
+    masked = apply_yellow_mask(image)
+    gray = cv2.cvtColor(masked, cv2.COLOR_BGR2GRAY)
+    boxes = get_boundary_boxes(gray)
+    box = choose_final_box(boxes)
+    result = image
+    if len(box) == 4:
         # color the chosen boundary box green
-        result = image
-        for i in range(edges[0], edges[1]):
-            result[i][edges[2]] = [0,255,0]
-            result[i][edges[3]] = [0,255,0]
-        for j in range(edges[2], edges[3]):
-            result[edges[0]][j] = [0,255,0]
-            result[edges[1]][j] = [0,255,0]
+        for i in range(box[0], box[1]):
+            result[i][box[2]] = [0, 255, 0]
+            result[i][box[3]] = [0, 255, 0]
+        for j in range(box[2], box[3]):
+            result[box[0]][j] = [0, 255, 0]
+            result[box[1]][j] = [0, 255, 0]
 
-    # VINCENT: dit onderste kan je uncommenten als je de masked image wil zien met alle boundary boxes getekent (comment dan wel even line 136-144 out)
-    # black = result
-    # for box in boxes:
-    #     for i in range(box[0], box[1]):
-    #         for j in box[2:]:
-    #             black[i][j-1] = 255
-    #     index = 3
-    #     while index < len(box):
-    #         for j in range(box[index-1], box[index]):
-    #             black[box[0]-1][j] = 255
-    #             black[box[1]-1][j] = 255
-    #         index = index + 2
-    # result = black
+    return result
+
+
+def draw_all_boxes(image):
+    masked = apply_yellow_mask(image)
+
+    gray = cv2.cvtColor(masked, cv2.COLOR_BGR2GRAY)
+
+    # get all the boundary boxes 
+    boxes = get_boundary_boxes(gray)
+
+    # use same erode and dilate as used in get_boundary_boxes method to better validate the working of this
+    gray = cv2.erode(gray, np.ones((10, 10)))
+    result = cv2.dilate(gray, np.ones((10, 10)))
+
+    # draw all boxes
+    for box in boxes:
+        if len(box) == 4:
+            for i in range(box[0], box[1]):
+                result[i][box[2]] = 255
+                result[i][box[3]] = 255
+            for j in range(box[2], box[3]):
+                result[box[0]][j] = 255
+                result[box[1]][j] = 255
 
     return result
 

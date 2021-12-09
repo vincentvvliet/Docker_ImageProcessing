@@ -1,4 +1,6 @@
 from Localization import plate_detection
+from Localization import draw_all_boxes
+from Localization import draw_green_box
 import cv2
 import argparse
 import numpy as np
@@ -29,7 +31,10 @@ while cap.isOpened():
         if count % 24 == 0 and count < 1730:
             print(count)
             # dummy arguments for sample frequency and save_path should be changed
-            detections = plate_detection(frame)
+
+            # detections = draw_all_boxes(frame) # STEP 1
+            # detections = draw_green_box(frame) # STEP 2
+            detections = plate_detection(frame) # STEP 3
 
             # Display the resulting frame
             cv2.imshow("detection", detections)  # replace with detections

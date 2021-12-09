@@ -143,6 +143,8 @@ def plate_detection(image):
         for j in range(0, len(gray[0])):
             if i < box[0] or i > box[1] or j < box[2] or j > box[3]:
                 gray[i][j] = 0
+            # else:
+            #     gray[i][j] = 255
     return gray
 
 

@@ -33,12 +33,12 @@ while cap.isOpened():
             # dummy arguments for sample frequency and save_path should be changed
 
             # detections = draw_all_boxes(frame) # STEP 1
-            # detections = draw_green_box(frame) # STEP 2
-            detections = plate_detection(frame) # STEP 3
+            detections = draw_green_box(frame) # STEP 2
+            # detections = plate_detection(frame) # STEP 3
 
             # Display the resulting frame
             cv2.imshow("detection", detections)  # replace with detections
-            cv2.imwrite("Results/frame_%d.jpg" % count, detections)
+            # cv2.imwrite("Results/frame_%d.jpg" % count, detections)
 
             # Press Q on keyboard to  exit
             if cv2.waitKey(25) & 0xFF == ord('q'):

@@ -34,9 +34,6 @@ def main():
 
     comparison_result = []
 
-    print(len(labelled))
-    print(len(result_image))
-
     # Compare images
     for i, _ in enumerate(result_image):
         # Add parts that do not correspond to each other

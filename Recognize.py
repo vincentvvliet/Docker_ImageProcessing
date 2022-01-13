@@ -9,8 +9,7 @@ EPSILON = 0.15
 # Load the reference characters
 character_set = {'B', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S', 'T', 'V', 'X', 'Z', '0', '1', '2',
                  '3', '4', '5', '6', '7', '8', '9'}
-# letter_set = {'B', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S', 'T', 'V', 'X', 'Z'}
-# number_set = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'}
+
 reference_characters = {}
 path = "TrainingSet/Categorie I/"
 
@@ -27,6 +26,7 @@ def loadImage(filepath, filename, grayscale=True):
 
 
 def difference_score(test_image, reference_character):
+    reference_character = cv2.resize(reference_character, (test_image.shape[0],test_image.shape[1]))
     # return the number of non-zero pixels
     return np.count_nonzero(cv2.bitwise_xor(test_image, reference_character))
 
@@ -35,7 +35,8 @@ def give_label_two_scores(test_image):
     # Get the difference score with each of the reference characters
     difference_scores = []
     for char in reference_characters:
-        difference_scores.append(difference_score(test_image, reference_characters[char]))
+
+        difference_scores.append(difference_score(test_image, crop_to_boundingbox(reference_characters[char])))
 
     difference_scores = np.array(difference_scores)
     A, B = np.partition(difference_scores, 1)[0:2]
@@ -71,14 +72,15 @@ Hints:
 
 
 def segment_and_recognize(plate_imgs):
-    recognized_plates = []
-    for image in plate_imgs:
-        # TODO crop image further to separate each letter & number
-        plotImage(image, give_label_two_scores(image))
+    setup()
+    recognized_chars = []
+    images = seperate(plate_imgs)
+    print("ze zijn gesplit!!!!!!!!!!!!!")
+    for image in images:
         if give_label_two_scores(image) != AMBIGUOUS_RESULT:
-            recognized_plates.append(image)
-
-    return recognized_plates
+            recognized_chars.append(image)
+    print(recognized_chars)
+    return recognized_chars
 
 
 def setup():
@@ -93,26 +95,7 @@ def setup():
             reference_characters[char] = loadImage("SameSizeNumbers/", str(letter_counter) + ".bmp")
             letter_counter = letter_counter + 1
     
-    # TODO remove when done debugging
-    # Capture frame with license plate
-    cap = cv2.VideoCapture(path + "Video1_2.avi")
-    
-    # Choose a frame to work on
-    frameN = 36
-    frame = 0
-    
-    for i in range(0, frameN):
-        # Read the video frame by frame
-        ret, frame = cap.read()
-        # if we have no more frames end the loop
-        if not ret:
-            break
-    
-    # When everything done, release the capture
-    cap.release()
-    cv2.destroyAllWindows()
 
-    plate = get_plate(frame)
 
     # test_images = []
     # test_images.append(frame)
@@ -135,7 +118,8 @@ def crop_to_boundingbox(image):
                 if j > maxj:
                     maxj = j
     return image[mini:maxi+1,minj:maxj+1]
-    
+
+  
 def seperate(image):
     plotImage(image, "")
     # convert to grayscale
@@ -223,12 +207,14 @@ def seperate(image):
     finalindex += int(0.02*len(plate))
     ymin = finalindex-int(heightchar/2)
     ymax = finalindex+int(heightchar/2)
+
+    characters = []
     for box in boxes:
         char = plate[ymin:ymax,box[0]:box[1]]
         # eventueel dilate en erode om mooier te maken
         char = crop_to_boundingbox(char)
-        plotImage(char, "")
-
+        characters.append(char)
+    return characters
 
 
 

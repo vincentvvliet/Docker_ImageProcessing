@@ -92,6 +92,7 @@ def hoihoi(image):
 #             rotated = cv2.resize(rotated, ())
 
 def get_plate(image):
+    plotImage(image, "")
     # apply yellow mask
     mask = apply_yellow_mask(image) 
 

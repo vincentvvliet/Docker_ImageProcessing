@@ -5,6 +5,7 @@ from Localization import get_plate
 from Localization import apply_yellow_mask
 from Localization import hoihoi
 from Recognize import seperate
+from Recognize import segment_and_recognize
 import cv2
 import argparse
 import numpy as np
@@ -32,7 +33,7 @@ while cap.isOpened():
     # Capture frame-by-frame
     ret, frame = cap.read()
     if ret == True:
-        if count % 24 == 0 and count < 1730 and count > 0:
+        if count % 24 == 0 and count < 1730 and count > 24:
             print(count)
             # dummy arguments for sample frequency and save_path should be changed
             # a = bramsgelul(frame)
@@ -43,9 +44,9 @@ while cap.isOpened():
             # detections = draw_all_boxes(frame) # STEP 1
             # detections = draw_green_box(frame) # STEP 2
             # detections = plate_detection(frame) # STEP 3
-            seperate(get_plate(frame))
+            segment_and_recognize(get_plate(frame))
             # # Display the resulting frame
-            # cv2.imshow("detection", detections)  # replace with detections
+              # replace with detections
             # cv2.imwrite("Results/frame_%d.jpg" % count, detections)
 
             # Press Q on keyboard to  exit

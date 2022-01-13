@@ -117,9 +117,31 @@ def setup():
     # test_images = []
     # test_images.append(frame)
     # segment_and_recognize(test_images)
+
+def crop_to_boundingbox(image):
+    mini = len(image)
+    minj = len(image[0])
+    maxi = 0
+    maxj = 0
+    for i in range(len(image)):
+        for j in range(len(image[0])):
+            if image[i][j] != 0:
+                if i < mini:
+                    mini = i
+                if i > maxi:
+                    maxi = i
+                if j < minj:
+                    minj = j
+                if j > maxj:
+                    maxj = j
+    return image[mini:maxi+1,minj:maxj+1]
     
 def seperate(image):
+    plotImage(image, "")
+    # convert to grayscale
     plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # use mean of all colors as threshold and convert to binary where characters are white and background black
     threshold = np.mean(plate)
     for i in range(len(plate)):
         for j in range(len(plate[0])):
@@ -127,8 +149,14 @@ def seperate(image):
                 plate[i][j] = 255
             else:
                 plate[i][j] = 0
-    epsilon = 0.05*len(plate[0])
+
+    # use epsilon, this is
+    epsilon = 0.05*len(plate[0]) 
+
+    # after observing multiple plates, I saw that each character has a width of approximately 10% of the plate's width
     charwidth = 0.1*len(plate[0])
+
+
     boxes = []
     overlap = np.array([])
     while(len(boxes)<6 and len(overlap)<len(plate[0])-int(charwidth)):
@@ -143,11 +171,85 @@ def seperate(image):
                         box = (j,jj)
         overlap = np.concatenate((overlap, np.arange(box[0],box[1]+1)))
         boxes.append(box)
-    
 
+    boxes.sort()
+    gaps = []
+    for i in range(len(boxes)-1):
+        gaps.append(boxes[i+1][0]-boxes[i][1])
+    gaps.sort()
+    gap1 = gaps[-1]
+    gap2 = gaps[-2]
+
+    dot1 = (0,0)
+    dot2 = (0,0)
+    for i in range(len(boxes)-1):
+        gap = boxes[i+1][0]-boxes[i][1]
+        if dot1 == (0,0) and gap1 == gap:
+            dot1 = (boxes[i+1][0],boxes[i][1])
+        elif dot2 == (0,0) and gap2 == gap:
+            dot2 = (boxes[i+1][0],boxes[i][1])
+
+    dot1index = int((dot1[0]+dot1[1])/2)
+    dot2index = int((dot2[0]+dot2[1])/2)
+
+    black = True
+    matches = []
+    for i in range(len(plate)):
+        if plate[i][dot1index] == 255 and plate[i][dot2index] == 255:
+            if black:
+                matches.append([i])
+                black = False
+        else:
+            if not black:
+                matches[-1].append(i)
+                black = True
+
+
+    finalindex = int(len(plate)/2)
+    if len(matches) > 0:
+        if len(matches[-1]) == 1:
+            matches[-1].append(len(plate))
+        center = float(len(plate)/2)
+        mindis = len(plate)
+        for m in matches:
+            if np.abs(center-(float((m[1]+m[0])/2.0))) < mindis:
+                mindis = np.abs(center-(float((m[1]+m[0])/2.0)))
+                finalindex = int((m[1]+m[0])/2)
+
+    heightchar = float(0.17*len(plate[0]))
+    if finalindex < float(heightchar/2.0) or finalindex > len(plate)-float(heightchar/2.0):
+        finalindex = int(len(plate)/2)
+
+    finalindex += int(0.02*len(plate))
+    ymin = finalindex-int(heightchar/2)
+    ymax = finalindex+int(heightchar/2)
     for box in boxes:
-        image[0:3,box[0]:box[1]+1] = [0,255,0]
-    plotImage(image, "")
+        char = plate[ymin:ymax,box[0]:box[1]]
+        # eventueel dilate en erode om mooier te maken
+        char = crop_to_boundingbox(char)
+        plotImage(char, "")
+
+
+
+
+    # for i in range(len(image)):
+    #     for j in range(len(image[0])):
+    #         if plate[i][j] == 255:
+    #             image[i][j] = [255,255,255]
+    #         else:
+    #             image[i][j] = [0,0,0]
+
+
+
+    # image[:,dot1index] = [0,255,0]
+    # image[:,dot2index] = [0,255,0]
+    # plotImage(image, "")
+
+
+    # mark found positions green
+    # for box in boxes:
+    #     image[0:3,box[0]:box[1]+1] = [0,255,0]
+    # plotImage(image, "")
 
     # for box in boxes:
     #     char = plate[:,box[0]:box[1]]

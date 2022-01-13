@@ -119,17 +119,7 @@ def setup():
     # segment_and_recognize(test_images)
     
 def seperate(image):
-    colorMin = np.array([10, 60, 60])
-    colorMax = np.array([26, 255, 255])
-
-    # Segment only the selected color from the image and leave out all the rest (apply a mask)
-    # hsi = cv2.cvtColor(plate, cv2.COLOR_BGR2HSV)
-    # mask = cv2.inRange(hsi, colorMin, colorMax)
-    # masked = cv2.bitwise_and(plate, plate, mask=mask)
-    # masked = cv2.cvtColor(masked, cv2.COLOR_HSV2RGB)
     plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # plate = cv2.erode(plate, (550,550))
-    plate = cv2.dilate(plate, (20,20))
     threshold = np.mean(plate)
     for i in range(len(plate)):
         for j in range(len(plate[0])):
@@ -137,15 +127,82 @@ def seperate(image):
                 plate[i][j] = 255
             else:
                 plate[i][j] = 0
+    epsilon = 0.05*len(plate[0])
+    charwidth = 0.1*len(plate[0])
+    boxes = []
+    overlap = np.array([])
+    while(len(boxes)<6 and len(overlap)<len(plate[0])-int(charwidth)):
+        minwhite = 2*len(plate)
+        box = (0,0)
+        for j in range(int(len(plate[0])-charwidth-epsilon)):
+            if j not in overlap:
+                whites = cv2.countNonZero(plate[:,j])
+                for jj in range(int(j+charwidth),int(j+charwidth+epsilon)):
+                    if (not np.in1d(overlap,np.arange(j,jj)).any()) and whites+cv2.countNonZero(plate[:,jj]) < minwhite:
+                        minwhite = whites+cv2.countNonZero(plate[:,jj])
+                        box = (j,jj)
+        overlap = np.concatenate((overlap, np.arange(box[0],box[1]+1)))
+        boxes.append(box)
+    
 
-    plotImage(plate, "")
+    for box in boxes:
+        image[0:3,box[0]:box[1]+1] = [0,255,0]
+    plotImage(image, "")
+
+    # for box in boxes:
+    #     char = plate[:,box[0]:box[1]]
+    #     contours, hierarchy = cv2.findContours(char,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+    #     biggest = contours[0]
+    #     for c in contours:    
+    #         if len(c) > len(biggest):
+    #             biggest = c
+    #     pixels = np.zeros((len(char),len(char[0])))
+    #     imin = len(char)
+    #     imax = 0
+    #     jmin = len(char[0])
+    #     jmax = 0
+    #     for p in biggest:
+    #         pixels[p[0][1]][p[0][0]] = 255
+    #         if p[0][1] < imin:
+    #             imin = p[0][1]
+    #         if p[0][1] > imax:
+    #             imax = p[0][1]
+    #         if p[0][0] < jmin:
+    #             jmin = p[0][0]
+    #         if p[0][0] > jmax:
+    #             jmax = p[0][0]
+    #     plotImage(char[imin:imax,jmin:jmax], "")
+
+    # width = 0.9*len(plate[0])
+    # for i in range(1, 6):
+    #     minwhite = len(plate)
+    #     split = 0
+    #     mincolumn = int((i*width/6)-0.07*width)
+    #     maxcolumn = int((i*width/6)+0.07*width)
+    #     for j in range(mincolumn, maxcolumn):
+    #         column = plate[:,j]
+    #         whites = cv2.countNonZero(column)
+    #         if whites < minwhite:
+    #             minwhite = whites
+    #             split = j
+    #     image[:, split] = [0, 255, 0]
+    # plotImage(image, "")
 
 
-    first = plate[:,:int(len(plate[0])/6)]
+
+    # contours, hierarchy = cv2.findContours(canny,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+    # for c in contours:    
+    #     pixels = np.zeros((len(image),len(image[0])))
+    #     for p in c:
+    #         pixels[p[0][1]][p[0][0]] = 255
+    #     plotImage(pixels, "")
+
+    # ret2,th2 = cv2.threshold(plate,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    # plotImage(th2, "thresh")
 
 
 
-    # contours, hierarchy = cv2.findContours(first,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+    # 
     # biggest = contours[0]
     # for c in contours:
     #     if len(c) > len(biggest):

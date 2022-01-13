@@ -2,6 +2,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from Localization import get_plate
 
 AMBIGUOUS_RESULT = "AMBIGUOUS"
 EPSILON = 0.15
@@ -71,83 +72,103 @@ Hints:
 
 def segment_and_recognize(plate_imgs):
     recognized_plates = []
-    # for image in plate_imgs:
-    #     # TODO crop image further to separate each letter & number
-    #     plotImage(image, give_label_two_scores(image))
-    #     if give_label_two_scores(image) != AMBIGUOUS_RESULT:
-    #         recognized_plates.append(image)
+    for image in plate_imgs:
+        # TODO crop image further to separate each letter & number
+        plotImage(image, give_label_two_scores(image))
+        if give_label_two_scores(image) != AMBIGUOUS_RESULT:
+            recognized_plates.append(image)
 
     return recognized_plates
 
 
 def setup():
     # Setup reference characters
-    # letter_counter = 0
+    letter_counter = 0
     number_counter = 0
-    # for char in character_set:
-    #     if char.isdigit():
-    #         reference_characters[char] = loadImage("SameSizeLetters/", str(number_counter) + ".bmp")
-    #         number_counter = number_counter + 1
-    #     else:
-    #         reference_characters[char] = loadImage("SameSizeNumbers/", str(letter_counter) + ".bmp")
-    #         letter_counter = letter_counter + 1
-    #
-    # # TODO remove when done debugging
-    # # Capture frame with license plate
-    # cap = cv2.VideoCapture(path + "Video12_2.avi")
-    #
-    # # Choose a frame to work on
-    # frameN = 36
-    # frame = 0
-    #
-    # for i in range(0, frameN):
-    #     # Read the video frame by frame
-    #     ret, frame = cap.read()
-    #     print(ret)
-    #     # if we have no more frames end the loop
-    #     if not ret:
-    #         break
-    #
-    # # When everything done, release the capture
-    # cap.release()
-    # cv2.destroyAllWindows()
-    # # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    # # plotImage(frame, "Frame")
-    #
-    # # test_images = []
-    # # test_images.append(frame)
-    # # segment_and_recognize(test_images)
-    #
-    # # Define color range
-    # colorMin = np.array([10, 120, 100])
-    # # colorMin = np.array([14, 110, 96])
-    # colorMax = np.array([30, 255, 255])
-    #
-    # # Segment only the selected color from the image and leave out all the rest (apply a mask)
-    # hsi = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    for char in character_set:
+        if char.isdigit():
+            reference_characters[char] = loadImage("SameSizeLetters/", str(number_counter) + ".bmp")
+            number_counter = number_counter + 1
+        else:
+            reference_characters[char] = loadImage("SameSizeNumbers/", str(letter_counter) + ".bmp")
+            letter_counter = letter_counter + 1
+    
+    # TODO remove when done debugging
+    # Capture frame with license plate
+    cap = cv2.VideoCapture(path + "Video1_2.avi")
+    
+    # Choose a frame to work on
+    frameN = 36
+    frame = 0
+    
+    for i in range(0, frameN):
+        # Read the video frame by frame
+        ret, frame = cap.read()
+        # if we have no more frames end the loop
+        if not ret:
+            break
+    
+    # When everything done, release the capture
+    cap.release()
+    cv2.destroyAllWindows()
+
+    plate = get_plate(frame)
+
+    # test_images = []
+    # test_images.append(frame)
+    # segment_and_recognize(test_images)
+    
+def seperate(image):
+    colorMin = np.array([10, 60, 60])
+    colorMax = np.array([26, 255, 255])
+
+    # Segment only the selected color from the image and leave out all the rest (apply a mask)
+    # hsi = cv2.cvtColor(plate, cv2.COLOR_BGR2HSV)
     # mask = cv2.inRange(hsi, colorMin, colorMax)
-    #
-    # # Plot the masked image (where only the selected color is visible)
-    # # plotImage(mask, "Masked image", "gray")
-    # result = cv2.bitwise_and(frame, frame, mask=mask)
-    # result = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
-    #
-    # # plotImage(result, "Result")
-    #
-    # # Get coordinates of the plate
-    # indices = []
-    # for i, _ in enumerate(mask):
-    #     for j, _ in enumerate(mask[i]):
-    #         if mask[i][j] != 0:
-    #             indices.append([i, j])
-    # indices = sorted(indices, key=lambda indices: indices[0])
-    # minXY = indices[0]
-    # maxXY = indices[-1]
-    # cropped = result[minXY[0]:maxXY[0], minXY[1]:maxXY[1]]
-    # # plotImage(cropped, "Cropped")
+    # masked = cv2.bitwise_and(plate, plate, mask=mask)
+    # masked = cv2.cvtColor(masked, cv2.COLOR_HSV2RGB)
+    plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # plate = cv2.erode(plate, (550,550))
+    plate = cv2.dilate(plate, (20,20))
+    threshold = np.mean(plate)
+    for i in range(len(plate)):
+        for j in range(len(plate[0])):
+            if plate[i][j] < threshold:
+                plate[i][j] = 255
+            else:
+                plate[i][j] = 0
+
+    plotImage(plate, "")
 
 
-setup()
+    first = plate[:,:int(len(plate[0])/6)]
+
+
+
+    # contours, hierarchy = cv2.findContours(first,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+    # biggest = contours[0]
+    # for c in contours:
+    #     if len(c) > len(biggest):
+    #         biggest = c
+        # imin = len(plate)
+        # imax = 0
+        # jmin = len(plate[0])
+        # jmax = 0
+        # pixels = np.zeros((len(plate),len(plate[0])))
+        # for p in c:
+        #     pixels[p[0][1]][p[0][0]] = 255
+        #     if p[0][1] < imin:
+        #         imin = p[0][1]
+        #     if p[0][1] > imax:
+        #         imax = p[0][1]
+        #     if p[0][0] < jmin:
+        #         jmin = p[0][0]
+        #     if p[0][0] > jmax:
+        #         jmax = p[0][0]
+        #     if imax - imin < 0.25*len(plate) or jmax - jmin < 0.025*len(plate[0]):
+        #         plate[imin:imax,jmin:jmax] = 0
+
+# setup()
 # for image in plate_imgs:
 #     plotImage(image, give_label_two_scores(image))
 # for i in range(2, 8):

@@ -17,6 +17,150 @@ Hints:
 	1. You may need to define other functions, such as crop and adjust function
 	2. You may need to define two ways for localizing plates(yellow or other colors)
 """
+def plotImage(img, title, cmapType=None):
+    # Display image
+    if (cmapType):
+        plt.imshow(img, cmap=cmapType, vmin=0, vmax=255)
+    else:
+        plt.imshow(img, vmin=0, vmax=255)
+    plt.title(title)
+    plt.show()
+
+def get_orientation_distribution(fourier):
+    N = fourier.shape[0]
+    M = fourier.shape[1]
+    orientation = np.zeros(360)
+    for i in range(fourier.shape[0]):
+        for j in range(fourier.shape[1]):
+            u_r = np.sqrt((i - N/2) ** 2 + (j - M/2) ** 2)
+            theta = np.arctan((i - N/2) / (j - M/2)) if (j - M/2) != 0 else 0
+            orientation[int(np.rad2deg(theta))] += np.abs(fourier[int(u_r * np.sin(theta)), int(u_r * np.cos(theta))])
+    return orientation
+
+def get_bounding_box(image):
+    mini = len(image)
+    minj = len(image[0])
+    maxi = 0
+    maxj = 0
+    for i in range(len(image)):
+        for j in range(len(image[0])):
+            if image[i][j] != 0:
+                if i < mini:
+                    mini = i
+                if i > maxi:
+                    maxi = i
+                if j < minj:
+                    minj = j
+                if j > maxj:
+                    maxj = j
+    return mini, maxi, minj, maxj
+
+def hoihoi(image):
+    mask = apply_yellow_mask(image)    
+
+    gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+
+    contours, hierarchy = cv2.findContours(gray,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+    con = contours[0]
+    for c in contours:
+        if len(c) > len(con):
+            con = c 
+    contour = np.zeros((len(image),len(image[0])))
+    for pixel in con:
+        i = pixel[0][1]
+        j = pixel[0][0]
+        contour[i][j] = 255
+    arr = cv2.minAreaRect(con)
+    angle = arr[-1]
+    if angle < -45:
+        angle = angle + 90
+    center = (int(len(image[0])/2),int(len(image)/2))
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))  
+    plotImage(rotated, str(angle))
+# def choose_best_angle(image):
+#     rec = np.zeros((100,100))
+#     rec[44,26:75] = 255
+#     rec[56,26:75] = 255
+#     rec[44:57,26] = 255
+#     rec[44:57,75] = 255
+#     for angle in range(0, 360):
+#         M = cv2.getRotationMatrix2D((50,50), angle, 1.0)
+#         rotated = cv2.warpAffine(rec, M, (100,100))
+#         rotated = crop_to_bounding_box(rotated)
+#         if len(rotated) > len(image):
+#             rotated = cv2.resize(rotated, ())
+
+def get_plate(image):
+    # apply yellow mask
+    mask = apply_yellow_mask(image) 
+
+    # make grayscale
+    gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+
+    # get all contours
+    contours, hierarchy = cv2.findContours(gray,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+
+    # some variables for further use
+    center = (int(len(image[0])/2),int(len(image)/2))
+    ratio = float(47 / 11)
+    finalbox = 0, 0, 0, 0
+    finalangle = 0
+    difference = float('inf') 
+
+    # choose the best contour
+    for c in contours:
+
+        # skip the ones with less than 20 pixels
+        if len(c) < 20:
+            continue
+
+        # store the pixels of current contour
+        pixels = np.zeros((len(image),len(image[0])))
+        for pixel in c:
+            i = pixel[0][1]
+            j = pixel[0][0]
+            pixels[i][j] = 255
+
+        # get the orientation angle and rotate the contour
+        arr = cv2.minAreaRect(c)
+        angle = arr[-1]
+        if angle < -45:
+            angle = angle + 90
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        rotated = cv2.warpAffine(pixels, M, (len(image[0]), len(image))) 
+
+        # get boundary box of this rotated version and calculate the height/width ratio
+        mini, maxi, minj, maxj = get_bounding_box(rotated)
+        width = maxj-minj
+        height = maxi-mini
+        if width < 2 or height < 2:
+            continue
+        diff = float(np.abs(float(ratio - float(width / height))))
+        if diff < difference:
+            difference = diff
+            finalbox = mini, maxi, minj, maxj
+            finalangle = angle
+
+    # rotate the original image with the angle of the chosen contour
+    M = cv2.getRotationMatrix2D(center, finalangle, 1.0)
+    rotated = cv2.warpAffine(image, M, (len(image[0]), len(image))) 
+
+    # crop the rotated image with the boundary points of the chosen contour
+    crop = rotated[finalbox[0]:finalbox[1],finalbox[2]:finalbox[3]]
+    return crop
+
+
+
+    # rotated[finalbox[0],finalbox[2]:finalbox[3]+1] = [0, 255, 0]
+    # rotated[finalbox[1],finalbox[2]:finalbox[3]+1] = [0, 255, 0]
+    # rotated[finalbox[0]:finalbox[1]+1,finalbox[2]] = [0, 255, 0]
+    # rotated[finalbox[0]:finalbox[1]+1,finalbox[3]] = [0, 255, 0]
+    # return rotated
+    # fourier = np.fft.fftshift(np.fft.fft2(crop))
+    # theta = np.argmax(get_orientation_distribution(fourier))
+
+
 
 
 def get_boundary_boxes(image):
@@ -114,6 +258,8 @@ def choose_final_box(boxes):
 
 
 def apply_yellow_mask(image):
+    kernel = cv2.getGaussianKernel(30, 10)
+    image = cv2.filter2D(image, -1, kernel)  
     # Define color range
     colorMin = np.array([10, 60, 60])
     colorMax = np.array([26, 255, 255])
@@ -191,11 +337,15 @@ def draw_all_boxes(image):
     return result
 
 
-def plotImage(img, title, cmapType=None):
-    # Display image
-    if (cmapType):
-        plt.imshow(img, cmap=cmapType, vmin=0, vmax=255)
-    else:
-        plt.imshow(img, vmin=0, vmax=255)
-    plt.title(title)
-    plt.show()
+
+
+def loadImage(filepath, filename, grayscale=True):
+    return cv2.imread(filepath + filename, cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR)
+
+# img = loadImage("","TrainingSet/plate_basic_2.jpg")
+# fourier = np.fft.fftshift(np.fft.fft2(img))
+# theta = np.argmax(get_orientation_distribution(fourier))
+# center = (int(len(img[0])/2),int(len(img)/2))
+# M = cv2.getRotationMatrix2D(center, theta, 1.0)
+# rotated = cv2.warpAffine(img, M, (len(img[0]), len(img)))   
+# plotImage(rotated, "sick", cmapType='gray')

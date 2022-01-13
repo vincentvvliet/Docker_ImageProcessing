@@ -1,6 +1,10 @@
 from Localization import plate_detection
 from Localization import draw_all_boxes
 from Localization import draw_green_box
+from Localization import get_plate
+from Localization import apply_yellow_mask
+from Localization import hoihoi
+from Recognize import seperate
 import cv2
 import argparse
 import numpy as np
@@ -28,16 +32,20 @@ while cap.isOpened():
     # Capture frame-by-frame
     ret, frame = cap.read()
     if ret == True:
-        if count % 24 == 0 and count < 1730:
+        if count % 24 == 0 and count < 1730 and count > 24:
             print(count)
             # dummy arguments for sample frequency and save_path should be changed
-
+            # a = bramsgelul(frame)
+            # if a!=999:
+            #     center = (int(len(frame[0])/2),int(len(frame)/2))
+            #     M = cv2.getRotationMatrix2D(center, a, 1.0)
+            #     rotated = cv2.warpAffine(frame, M, (len(frame[0]), len(frame)))    
             # detections = draw_all_boxes(frame) # STEP 1
-            detections = draw_green_box(frame) # STEP 2
+            # detections = draw_green_box(frame) # STEP 2
             # detections = plate_detection(frame) # STEP 3
-
-            # Display the resulting frame
-            cv2.imshow("detection", detections)  # replace with detections
+            seperate(get_plate(frame))
+            # # Display the resulting frame
+            # cv2.imshow("detection", detections)  # replace with detections
             # cv2.imwrite("Results/frame_%d.jpg" % count, detections)
 
             # Press Q on keyboard to  exit

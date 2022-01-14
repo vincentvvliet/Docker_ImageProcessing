@@ -26,7 +26,7 @@ def loadImage(filepath, filename, grayscale=True):
 
 
 def difference_score(test_image, reference_character):
-    reference_character = cv2.resize(reference_character, (test_image.shape[0],test_image.shape[1]))
+    reference_character = cv2.resize(reference_character, (len(test_image[0]),len(test_image)))
     # return the number of non-zero pixels
     return np.count_nonzero(cv2.bitwise_xor(test_image, reference_character))
 
@@ -35,8 +35,8 @@ def give_label_two_scores(test_image):
     # Get the difference score with each of the reference characters
     difference_scores = []
     for char in reference_characters:
-
-        difference_scores.append(difference_score(test_image, crop_to_boundingbox(reference_characters[char])))
+        plotImage(reference_characters[char])
+        difference_scores.append(difference_score(test_image, reference_characters[char]))
 
     difference_scores = np.array(difference_scores)
     A, B = np.partition(difference_scores, 1)[0:2]
@@ -79,6 +79,7 @@ def segment_and_recognize(plate_imgs):
     for image in images:
         if give_label_two_scores(image) != AMBIGUOUS_RESULT:
             recognized_chars.append(image)
+        print("diff berekend")
     print(recognized_chars)
     return recognized_chars
 
@@ -121,7 +122,6 @@ def crop_to_boundingbox(image):
 
   
 def seperate(image):
-    plotImage(image, "")
     # convert to grayscale
     plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 

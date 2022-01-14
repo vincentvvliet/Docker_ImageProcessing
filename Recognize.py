@@ -136,7 +136,7 @@ def setup():
 
 def write(plates):
     # open the file in the write mode
-    with open('testing.csv', 'w') as f:
+    with open('sampleOutput.csv', 'w') as f:
         # create the csv writer
         writer = csv.writer(f)
 

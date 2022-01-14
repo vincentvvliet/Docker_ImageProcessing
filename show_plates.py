@@ -1,14 +1,11 @@
-from Localization import plate_detection
-from Localization import draw_all_boxes
-from Localization import draw_green_box
-from Localization import get_plate
-from Localization import apply_yellow_mask
-from Localization import hoihoi
-from Recognize import seperate
-from Recognize import segment_and_recognize
-import cv2
 import argparse
-import numpy as np
+
+import cv2
+
+from Localization import get_plate
+from Recognize import segment_and_recognize
+
+INVALID = [576,600,768,984,1104,1128,1176,1224, 1368, 1416, 1440, 1464, 1512, 1560, 1608]
 
 
 def get_args():
@@ -33,8 +30,10 @@ while cap.isOpened():
     # Capture frame-by-frame
     ret, frame = cap.read()
     if ret == True:
-        if count % 24 == 0 and count < 1730: #and count > 24:
+        if count % 24 == 0 and count < 1730: # and count > 1540:
             print(count)
+            if count in INVALID:
+                continue
             # dummy arguments for sample frequency and save_path should be changed
             # a = bramsgelul(frame)
             # if a!=999:
@@ -46,7 +45,7 @@ while cap.isOpened():
             # detections = plate_detection(frame) # STEP 3
             segment_and_recognize(get_plate(frame), count)
             # # Display the resulting frame
-              # replace with detections
+            # replace with detections
             # cv2.imwrite("Results/frame_%d.jpg" % count, detections)
 
             # Press Q on keyboard to  exit

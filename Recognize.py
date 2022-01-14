@@ -1,5 +1,6 @@
-import cv2
 import csv
+
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -23,6 +24,81 @@ def plotImage(img, title=""):
 
 def loadImage(filepath, filename, grayscale=True):
     return cv2.imread(filepath + filename, cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR)
+
+
+"""
+In this file, you will define your own segment_and_recognize function.
+To do:
+	1. Segment the plates character by character
+	2. Compute the distances between character images and reference character images(in the folder of 'SameSizeLetters' and 'SameSizeNumbers')
+	3. Recognize the character by comparing the distances
+Inputs:(One)
+	1. plate_imgs: cropped plate images by Localization.plate_detection function
+	type: list, each element in 'plate_imgs' is the cropped image(Numpy array)
+Outputs:(One)
+	1. recognized_plates: recognized plate characters
+	type: list, each element in recognized_plates is a list of string(Hints: the element may be None type)
+Hints:
+	You may need to define other functions.
+"""
+
+
+def segment_and_recognize(plate_imgs, frame):
+    # Call setup only once
+    setup()
+    # Main functionality
+    plate_info = []
+
+    # Add plate characters in correct format
+    plate = '\''
+    for char in recognize(plate_imgs):
+        plate += char
+    plate += '\''
+
+    # Append the reconised characters, frame no. and time (rounded down)
+    plate_info.append(plate)
+    plate_info.append(frame)
+    plate_info.append(round(frame / 24))
+
+    # Add to list of known plates
+    recognized_plates.append(plate_info)
+
+    # Only write at the end
+    if frame > 1700:
+        # Write to csv
+        write(recognized_plates)
+
+
+def recognize(plate_imgs):
+    recognized_chars = []
+    images, dot1, dot2 = seperate(plate_imgs)
+    for image in images:
+        if len(recognized_chars) == dot1 or len(recognized_chars) == dot2:
+            recognized_chars.append('-')
+        character = give_label_two_scores(image)
+        if character != AMBIGUOUS_RESULT:
+            recognized_chars.append(character)
+    print("recognized:", recognized_chars)
+
+    plotImage(plate_imgs)
+    return recognized_chars
+
+
+def setup():
+    # Setup reference characters
+    letter_counter = 1  # starts at 1.bmp
+    number_counter = 0
+    for char in character_array:
+        if char.isdigit():
+            reference_characters[char] = loadImage("SameSizeNumbers/", str(number_counter) + ".bmp")
+            number_counter = number_counter + 1
+        else:
+            reference_characters[char] = loadImage("SameSizeLetters/", str(letter_counter) + ".bmp")
+            letter_counter = letter_counter + 1
+
+    # Resize reference characters
+    for char, value in reference_characters.items():
+        reference_characters[char] = crop_to_boundingbox(value)
 
 
 def difference_score(test_image, reference_character):
@@ -64,68 +140,15 @@ def give_label_two_scores(test_image):
     return result_char
 
 
-"""
-In this file, you will define your own segment_and_recognize function.
-To do:
-	1. Segment the plates character by character
-	2. Compute the distances between character images and reference character images(in the folder of 'SameSizeLetters' and 'SameSizeNumbers')
-	3. Recognize the character by comparing the distances
-Inputs:(One)
-	1. plate_imgs: cropped plate images by Localization.plate_detection function
-	type: list, each element in 'plate_imgs' is the cropped image(Numpy array)
-Outputs:(One)
-	1. recognized_plates: recognized plate characters
-	type: list, each element in recognized_plates is a list of string(Hints: the element may be None type)
-Hints:
-	You may need to define other functions.
-"""
-
-
-def segment_and_recognize(plate_imgs):
-    # Call setup only once
-    setup()
-    # Main functionality
-    recognized_plates.append(recognize(plate_imgs))
-    write(recognized_plates)
-
-
-def recognize(plate_imgs):
-    recognized_chars = []
-    images, dot1, dot2 = seperate(plate_imgs)
-    for image in images:
-        if len(recognized_chars) == dot1 or len(recognized_chars) == dot2:
-            recognized_chars.append('-')
-        character = give_label_two_scores(image)
-        if character != AMBIGUOUS_RESULT:
-            recognized_chars.append(character)
-    print("recognized:", recognized_chars)
-
-    plotImage(plate_imgs)
-    return recognized_chars
-
-
-def setup():
-    # Setup reference characters
-    letter_counter = 1  # starts at 1.bmp
-    number_counter = 0
-    for char in character_array:
-        if char.isdigit():
-            reference_characters[char] = loadImage("SameSizeNumbers/", str(number_counter) + ".bmp")
-            number_counter = number_counter + 1
-        else:
-            reference_characters[char] = loadImage("SameSizeLetters/", str(letter_counter) + ".bmp")
-            letter_counter = letter_counter + 1
-
-    # Resize reference characters
-    for char, value in reference_characters.items():
-        reference_characters[char] = crop_to_boundingbox(value)
-
-
 def write(plates):
     # open the file in the write mode
-    with open('testing.csv', 'w') as f:
+    with open('sampleOutput.csv', 'w') as f:
         # create the csv writer
         writer = csv.writer(f)
+
+        header = ['License plate', 'Frame no.', 'Timestamp(seconds)']
+
+        writer.writerow(header)
 
         # write a row to the csv file
         writer.writerows(plates)

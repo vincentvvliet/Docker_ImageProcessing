@@ -26,8 +26,17 @@ def loadImage(filepath, filename, grayscale=True):
 
 
 def difference_score(test_image, reference_character):
+<<<<<<< HEAD
+=======
+    plotImage(reference_character)
+
+>>>>>>> 156ce510babc460e8e79e6f7b706c309fc73a033
     reference_character = cv2.resize(reference_character, (len(test_image[0]),len(test_image)))
     # return the number of non-zero pixels
+    plotImage(reference_character)
+
+    print(test_image.shape)
+    print(reference_character.shape)
     return np.count_nonzero(cv2.bitwise_xor(test_image, reference_character))
 
 
@@ -35,8 +44,14 @@ def give_label_two_scores(test_image):
     # Get the difference score with each of the reference characters
     difference_scores = []
     for char in reference_characters:
+<<<<<<< HEAD
         plotImage(reference_characters[char])
         difference_scores.append(difference_score(test_image, reference_characters[char]))
+=======
+        image = reference_characters[char]
+        print(image)
+        difference_scores.append(difference_score(test_image, crop_to_boundingbox(image)))
+>>>>>>> 156ce510babc460e8e79e6f7b706c309fc73a033
 
     difference_scores = np.array(difference_scores)
     A, B = np.partition(difference_scores, 1)[0:2]
@@ -103,6 +118,7 @@ def setup():
     # segment_and_recognize(test_images)
 
 def crop_to_boundingbox(image):
+    # print(image)
     mini = len(image)
     minj = len(image[0])
     maxi = 0

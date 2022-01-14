@@ -63,8 +63,10 @@ def segment_and_recognize(plate_imgs, frame):
     # Add to list of known plates
     recognized_plates.append(plate_info)
 
-    # Write to csv
-    write(recognized_plates)
+    # Only write at the end
+    if frame > 1700:
+        # Write to csv
+        write(recognized_plates)
 
 
 def recognize(plate_imgs):

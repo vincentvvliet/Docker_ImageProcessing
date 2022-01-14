@@ -1,5 +1,6 @@
-import cv2
 import csv
+
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -25,45 +26,6 @@ def loadImage(filepath, filename, grayscale=True):
     return cv2.imread(filepath + filename, cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR)
 
 
-def difference_score(test_image, reference_character):
-    reference_character = cv2.resize(reference_character, (len(test_image[0]), len(test_image)))
-    # return the number of non-zero pixels
-    return np.count_nonzero(cv2.bitwise_xor(test_image, reference_character))
-
-
-def give_label_two_scores(test_image):
-    # Get the difference score with each of the reference characters
-
-    # Erode to remove noise
-    test_image = cv2.erode(test_image, np.ones((2, 2)))
-
-    difference_scores = []
-    for key, value in reference_characters.items():
-        # Debug scores
-        # print("key",key,"score:",difference_score(test_image, value))
-        difference_scores.append(difference_score(test_image, value))
-
-    difference_scores = np.array(difference_scores)
-    A, B = np.partition(difference_scores, 1)[0:2]
-    result_char = 0
-
-    # Check if the ratio of the two scores is close to 1 (if so return AMBIGUOUS_RESULT)
-    for key, value in reference_characters.items():
-        if difference_score(test_image, value) == A:
-            # Debug which reference is closest to image
-            # plotImage(test_image)
-            # plotImage(value)
-            result_char = key
-
-    # ratio = A / B
-    # print("ratio:", ratio)
-    # if ratio > 1 - EPSILON and ratio < 1 + EPSILON:
-    #     return AMBIGUOUS_RESULT
-
-    # Return a single character based on the lowest score
-    return result_char
-
-
 """
 In this file, you will define your own segment_and_recognize function.
 To do:
@@ -81,7 +43,7 @@ Hints:
 """
 
 
-def segment_and_recognize(plate_imgs,frame):
+def segment_and_recognize(plate_imgs, frame):
     # Call setup only once
     setup()
     # Main functionality
@@ -134,13 +96,52 @@ def setup():
         reference_characters[char] = crop_to_boundingbox(value)
 
 
+def difference_score(test_image, reference_character):
+    reference_character = cv2.resize(reference_character, (len(test_image[0]), len(test_image)))
+    # return the number of non-zero pixels
+    return np.count_nonzero(cv2.bitwise_xor(test_image, reference_character))
+
+
+def give_label_two_scores(test_image):
+    # Get the difference score with each of the reference characters
+
+    # Erode to remove noise
+    test_image = cv2.erode(test_image, np.ones((2, 2)))
+
+    difference_scores = []
+    for key, value in reference_characters.items():
+        # Debug scores
+        # print("key",key,"score:",difference_score(test_image, value))
+        difference_scores.append(difference_score(test_image, value))
+
+    difference_scores = np.array(difference_scores)
+    A, B = np.partition(difference_scores, 1)[0:2]
+    result_char = 0
+
+    # Check if the ratio of the two scores is close to 1 (if so return AMBIGUOUS_RESULT)
+    for key, value in reference_characters.items():
+        if difference_score(test_image, value) == A:
+            # Debug which reference is closest to image
+            # plotImage(test_image)
+            # plotImage(value)
+            result_char = key
+
+    # ratio = A / B
+    # print("ratio:", ratio)
+    # if ratio > 1 - EPSILON and ratio < 1 + EPSILON:
+    #     return AMBIGUOUS_RESULT
+
+    # Return a single character based on the lowest score
+    return result_char
+
+
 def write(plates):
     # open the file in the write mode
     with open('sampleOutput.csv', 'w') as f:
         # create the csv writer
         writer = csv.writer(f)
 
-        header = ['License plate','Frame no.','Timestamp(seconds)']
+        header = ['License plate', 'Frame no.', 'Timestamp(seconds)']
 
         writer.writerow(header)
 

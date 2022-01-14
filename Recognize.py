@@ -1,4 +1,5 @@
 import cv2
+import csv
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -10,6 +11,7 @@ character_array = ['B', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', '
 
 reference_characters = {}
 path = "TrainingSet/Categorie I/"
+recognized_plates = []
 
 
 def plotImage(img, title=""):
@@ -33,11 +35,12 @@ def give_label_two_scores(test_image):
     # Get the difference score with each of the reference characters
 
     # Erode to remove noise
-    test_image = cv2.erode(test_image, np.ones((2,2)))
+    test_image = cv2.erode(test_image, np.ones((2, 2)))
 
     difference_scores = []
     for key, value in reference_characters.items():
-        print("key",key,"score:",difference_score(test_image, value))
+        # Debug scores
+        # print("key",key,"score:",difference_score(test_image, value))
         difference_scores.append(difference_score(test_image, value))
 
     difference_scores = np.array(difference_scores)
@@ -47,12 +50,13 @@ def give_label_two_scores(test_image):
     # Check if the ratio of the two scores is close to 1 (if so return AMBIGUOUS_RESULT)
     for key, value in reference_characters.items():
         if difference_score(test_image, value) == A:
-            plotImage(test_image)
-            plotImage(value)
+            # Debug which reference is closest to image
+            # plotImage(test_image)
+            # plotImage(value)
             result_char = key
 
-    ratio = A / B
-    print("ratio:", ratio)
+    # ratio = A / B
+    # print("ratio:", ratio)
     # if ratio > 1 - EPSILON and ratio < 1 + EPSILON:
     #     return AMBIGUOUS_RESULT
 
@@ -81,18 +85,19 @@ def segment_and_recognize(plate_imgs):
     # Call setup only once
     setup()
     # Main functionality
-    main(plate_imgs)
+    recognized_plates.append(recognize(plate_imgs))
+    write(recognized_plates)
 
 
-def main(plate_imgs):
+def recognize(plate_imgs):
     recognized_chars = []
     images = seperate(plate_imgs)
-    print("ze zijn gesplit!!!!!!!!!!!!!")
     for image in images:
         character = give_label_two_scores(image)
         if character != AMBIGUOUS_RESULT:
             recognized_chars.append(character)
-    print("recognized:", recognized_chars)
+    # print("recognized:", recognized_chars)
+
     return recognized_chars
 
 
@@ -109,8 +114,18 @@ def setup():
             letter_counter = letter_counter + 1
 
     # Resize reference characters
-    for char,value in reference_characters.items():
+    for char, value in reference_characters.items():
         reference_characters[char] = crop_to_boundingbox(value)
+
+
+def write(plates):
+    # open the file in the write mode
+    with open('testing.csv', 'w') as f:
+        # create the csv writer
+        writer = csv.writer(f)
+
+        # write a row to the csv file
+        writer.writerows(plates)
 
 
 def crop_to_boundingbox(image):
@@ -134,7 +149,7 @@ def crop_to_boundingbox(image):
 
 
 def seperate(image):
-    plotImage(image, "")
+    # plotImage(image, "")
     # convert to grayscale
     plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 

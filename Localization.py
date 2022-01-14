@@ -77,7 +77,7 @@ def hoihoi(image):
     center = (int(len(image[0])/2),int(len(image)/2))
     M = cv2.getRotationMatrix2D(center, angle, 1.0)
     rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))  
-    plotImage(rotated, str(angle))
+    # plotImage(rotated, str(angle))
 # def choose_best_angle(image):
 #     rec = np.zeros((100,100))
 #     rec[44,26:75] = 255

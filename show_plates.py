@@ -44,7 +44,7 @@ while cap.isOpened():
             # detections = draw_all_boxes(frame) # STEP 1
             # detections = draw_green_box(frame) # STEP 2
             # detections = plate_detection(frame) # STEP 3
-            segment_and_recognize(get_plate(frame))
+            segment_and_recognize(get_plate(frame), count)
             # # Display the resulting frame
               # replace with detections
             # cv2.imwrite("Results/frame_%d.jpg" % count, detections)

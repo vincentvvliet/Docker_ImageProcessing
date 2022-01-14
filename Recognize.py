@@ -81,11 +81,27 @@ Hints:
 """
 
 
-def segment_and_recognize(plate_imgs):
+def segment_and_recognize(plate_imgs,frame):
     # Call setup only once
     setup()
     # Main functionality
-    recognized_plates.append(recognize(plate_imgs))
+    plate_info = []
+
+    # Add plate characters in correct format
+    plate = '\''
+    for char in recognize(plate_imgs):
+        plate += char
+    plate += '\''
+
+    # Append the reconised characters, frame no. and time (rounded down)
+    plate_info.append(plate)
+    plate_info.append(frame)
+    plate_info.append(round(frame / 24))
+
+    # Add to list of known plates
+    recognized_plates.append(plate_info)
+
+    # Write to csv
     write(recognized_plates)
 
 
@@ -123,6 +139,10 @@ def write(plates):
     with open('testing.csv', 'w') as f:
         # create the csv writer
         writer = csv.writer(f)
+
+        header = ['License plate','Frame no.','Timestamp(seconds)']
+
+        writer.writerow(header)
 
         # write a row to the csv file
         writer.writerows(plates)

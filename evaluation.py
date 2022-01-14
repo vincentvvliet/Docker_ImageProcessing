@@ -34,17 +34,16 @@ if __name__ == '__main__':
 		licensePlate = student_results['License plate'][i]
 		frameNo = student_results['Frame no.'][i]
 		timeStamp = student_results['Timestamp(seconds)'][i]
-		print(licensePlate)
-		# print(frameNo)
-		# print(timeStamp)
 		# Find the lines of solution where frameNo fits into the interval
 		interval = ground_truth[(ground_truth['First frame'] <= frameNo) & (ground_truth['Last frame'] >= frameNo)]
+		print("frame:",frameNo)
+		print(interval)
 		for j in range(len(interval)):
 			index = interval.index[j]
 			solutionPlate = ground_truth['License plate'][index]
 			solutionTimeStamp = ground_truth['Timestamp'][index]
-			if solutionPlate == '5-SXB-74':
-				print(solutionTimeStamp)
+			print("student:",licensePlate)
+			print("solution:",solutionPlate)
 			if licensePlate == solutionPlate:
 				print(solutionPlate)
 				if timeStamp <= solutionTimeStamp + 2:

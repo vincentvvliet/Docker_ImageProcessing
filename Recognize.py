@@ -57,8 +57,8 @@ def segment_and_recognize(plate_imgs, frame):
 
     # Append the reconised characters, frame no. and time (rounded down)
     plate_info.append(plate)
-    plate_info.append(frame)
-    plate_info.append(round(frame / 24))
+    plate_info.append(frame + 1)
+    plate_info.append(round(frame / 12))
 
     # Add to list of known plates
     recognized_plates.append(plate_info)
@@ -78,9 +78,9 @@ def recognize(plate_imgs):
         character = give_label_two_scores(image)
         if character != AMBIGUOUS_RESULT:
             recognized_chars.append(character)
-    print("recognized:", recognized_chars)
+    # print("recognized:", recognized_chars)
 
-    plotImage(plate_imgs)
+    # plotImage(plate_imgs)
     return recognized_chars
 
 

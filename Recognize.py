@@ -91,13 +91,16 @@ def segment_and_recognize(plate_imgs):
 
 def recognize(plate_imgs):
     recognized_chars = []
-    images = seperate(plate_imgs)
+    images, dot1, dot2 = seperate(plate_imgs)
     for image in images:
+        if len(recognized_chars) == dot1 or len(recognized_chars) == dot2:
+            recognized_chars.append('-')
         character = give_label_two_scores(image)
         if character != AMBIGUOUS_RESULT:
             recognized_chars.append(character)
     print("recognized:", recognized_chars)
 
+    plotImage(plate_imgs)
     return recognized_chars
 
 
@@ -150,7 +153,6 @@ def crop_to_boundingbox(image):
 
 def seperate(image):
 
-    # plotImage(image, "")
     # convert to grayscale
     plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -189,22 +191,43 @@ def seperate(image):
     gaps = []
     for i in range(len(boxes) - 1):
         gaps.append(boxes[i + 1][0] - boxes[i][1])
-    gaps.sort()
-    gap1 = gaps[-1]
-    gap2 = gaps[-2]
 
-    dot1 = (0, 0)
-    dot2 = (0, 0)
-    for i in range(len(boxes) - 1):
-        gap = boxes[i + 1][0] - boxes[i][1]
-        if dot1 == (0, 0) and gap1 == gap:
-            dot1 = (boxes[i + 1][0], boxes[i][1])
-        elif dot2 == (0, 0) and gap2 == gap:
-            dot2 = (boxes[i + 1][0], boxes[i][1])
 
-    dot1index = int((dot1[0] + dot1[1]) / 2)
-    dot2index = int((dot2[0] + dot2[1]) / 2)
+    gaps = np.argsort(np.array(gaps))
+    dot1 = gaps[-1]
+    dot2 = gaps[-2]
 
+    gap1 = int((boxes[dot1][1] + boxes[dot1+1][0])/2)
+    gap2 = int((boxes[dot2][1] + boxes[dot2+1][0])/2)
+
+    if dot1 > dot2:
+        dot1 += 2
+        dot2 += 1
+    else:
+        dot2 += 2
+        dot1 += 1
+
+
+    #     gaps.append(boxes[i + 1][0] - boxes[i][1])
+    # gaps.sort()
+    # gap1 = gaps[-1]
+    # gap2 = gaps[-2]
+
+    # i1 = 2
+    # i2 = 5
+    # dot1 = (0, 0)
+    # dot2 = (0, 0)
+    # for i in range(len(boxes) - 1):
+    #     gap = boxes[i + 1][0] - boxes[i][1]
+    #     if dot1 == (0, 0) and gap1 == gap:
+    #         i1 = i + 1
+    #         dot1 = (boxes[i + 1][0], boxes[i][1])
+    #     elif dot2 == (0, 0) and gap2 == gap:
+    #         i2 = i + 2
+    #         dot2 = (boxes[i + 1][0], boxes[i][1])
+
+    dot1index = gap1
+    dot2index = gap2
     black = True
     matches = []
     for i in range(len(plate)):
@@ -242,7 +265,7 @@ def seperate(image):
         # eventueel dilate en erode om mooier te maken
         char = crop_to_boundingbox(char)
         characters.append(char)
-    return characters
+    return characters, dot1, dot2
 
     # for i in range(len(image)):
     #     for j in range(len(image[0])):

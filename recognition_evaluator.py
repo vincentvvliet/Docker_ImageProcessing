@@ -4,7 +4,7 @@ student_results = pd.read_csv('sampleOutput.csv')
 ground_truth = pd.read_csv('groundTruth.csv')
 
 counter = 0
-total = 14
+total = 15
 correct = 0
 incorrect = 0
 

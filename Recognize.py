@@ -13,6 +13,9 @@ character_array = ['B', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', '
 reference_characters = {}
 path = "TrainingSet/Categorie I/"
 recognized_plates = []
+sift_database = {}
+sift = cv2.SIFT_create()
+ambiguous = []
 
 
 def plotImage(img, title=""):
@@ -20,6 +23,10 @@ def plotImage(img, title=""):
     plt.imshow(img, cmap=plt.cm.gray, vmin=0, vmax=255)
     plt.title(title)
     plt.show()
+
+
+def compare_euclidean_norm(a, b):
+    return np.linalg.norm(a - b)
 
 
 def loadImage(filepath, filename, grayscale=True):
@@ -99,6 +106,8 @@ def setup():
     # Resize reference characters
     for char, value in reference_characters.items():
         reference_characters[char] = crop_to_boundingbox(value)
+        _, descriptor = sift.detectAndCompute(reference_characters[char], None)
+        sift_database[char] = descriptor
 
 
 def difference_score(test_image, reference_character):
@@ -109,24 +118,25 @@ def difference_score(test_image, reference_character):
 
 def give_label_two_scores(test_image):
     # TODO implement sift????
-    # sift = cv2.SIFT_create()
-    #
-    # keypoints_1, descriptors_test = sift.detectAndCompute(test_image, None)
-    #
-    # # feature matching
+    distance = {}
+    _, descriptors_test = sift.detectAndCompute(test_image, None)
+
+    # feature matching
     # bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck=True)
-    #
+
     # match_array = []
     # for key, value in reference_characters.items():
     #     keypoints, descriptors = sift.detectAndCompute(value, None)
-    #     match_array.append([key, sorted(bf.match(descriptors_test, descriptors), key = lambda x:x.distance)])
-    #
-    # min = ['0',float('inf')]
+    for label, value in sift_database.items():
+        distance[label] = compare_euclidean_norm(descriptors_test[0], value)
+
+    # min = ['0', float('inf')]
     # for match in match_array:
     #     if match[1][0].distance < min[1]:
-    #         min = [match[0],match[1][0].distance]
-    #
-    # print(min)
+    #         min = [match[0], match[1][0].distance]
+
+    # TODO weird min values?
+    print('Min:',min(distance, key=distance.get))
 
     # Get the difference score with each of the reference characters
 
@@ -151,9 +161,10 @@ def give_label_two_scores(test_image):
             # plotImage(value)
             result_char = key
 
-    # ratio = A / B
+    ratio = A / B
     # print("ratio:", ratio)
-    # if ratio > 1 - EPSILON and ratio < 1 + EPSILON:
+    if ratio > 1 - EPSILON and ratio < 1 + EPSILON:
+        ambiguous.append(A)
     #     return AMBIGUOUS_RESULT
 
     # Return a single character based on the lowest score
@@ -172,6 +183,8 @@ def write(plates):
 
         # write a row to the csv file
         writer.writerows(plates)
+
+        writer.writerow(['Total ambiguous', len(ambiguous)])
 
 
 def crop_to_boundingbox(image):
@@ -195,7 +208,7 @@ def crop_to_boundingbox(image):
 
 
 def seperate(image):
-    plotImage(image)
+    # plotImage(image)
     # convert to grayscale
     plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(plate, (7, 7), 0)
@@ -240,13 +253,12 @@ def seperate(image):
     for i in range(len(boxes) - 1):
         gaps.append(boxes[i + 1][0] - boxes[i][1])
 
-
     gaps = np.argsort(np.array(gaps))
     dot1 = gaps[-1]
     dot2 = gaps[-2]
 
-    gap1 = int((boxes[dot1][1] + boxes[dot1+1][0])/2)
-    gap2 = int((boxes[dot2][1] + boxes[dot2+1][0])/2)
+    gap1 = int((boxes[dot1][1] + boxes[dot1 + 1][0]) / 2)
+    gap2 = int((boxes[dot2][1] + boxes[dot2 + 1][0]) / 2)
 
     if dot1 > dot2:
         dot1 += 2
@@ -254,7 +266,6 @@ def seperate(image):
     else:
         dot2 += 2
         dot1 += 1
-
 
     #     gaps.append(boxes[i + 1][0] - boxes[i][1])
     # gaps.sort()
@@ -403,4 +414,3 @@ def seperate(image):
     #         jmax = p[0][0]
     #     if imax - imin < 0.25*len(plate) or jmax - jmin < 0.025*len(plate[0]):
     #         plate[imin:imax,jmin:jmax] = 0
-

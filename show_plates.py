@@ -6,7 +6,7 @@ from Localization import get_plate
 from Recognize import segment_and_recognize
 
 # Plates where localization fails
-INVALID = [601, 769, 913, 985, 1129, 1177, 1225, 1369, 1417, 1441, 1465, 1513, 1561, 1609]
+INVALID = [601, 769, 913, 985, 1129, 1177, 1225, 1321, 1369, 1417, 1441, 1465, 1513, 1561, 1609]
 
 
 def get_args():

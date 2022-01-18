@@ -17,6 +17,8 @@ Hints:
 	1. You may need to define other functions, such as crop and adjust function
 	2. You may need to define two ways for localizing plates(yellow or other colors)
 """
+
+
 def plotImage(img, title, cmapType=None):
     # Display image
     if (cmapType):
@@ -26,16 +28,19 @@ def plotImage(img, title, cmapType=None):
     plt.title(title)
     plt.show()
 
+
+# TODO not used
 def get_orientation_distribution(fourier):
     N = fourier.shape[0]
     M = fourier.shape[1]
     orientation = np.zeros(360)
     for i in range(fourier.shape[0]):
         for j in range(fourier.shape[1]):
-            u_r = np.sqrt((i - N/2) ** 2 + (j - M/2) ** 2)
-            theta = np.arctan((i - N/2) / (j - M/2)) if (j - M/2) != 0 else 0
+            u_r = np.sqrt((i - N / 2) ** 2 + (j - M / 2) ** 2)
+            theta = np.arctan((i - N / 2) / (j - M / 2)) if (j - M / 2) != 0 else 0
             orientation[int(np.rad2deg(theta))] += np.abs(fourier[int(u_r * np.sin(theta)), int(u_r * np.cos(theta))])
     return orientation
+
 
 def get_bounding_box(image):
     mini = len(image)
@@ -55,18 +60,19 @@ def get_bounding_box(image):
                     maxj = j
     return mini, maxi, minj, maxj
 
-#TODO not being used
+
+# TODO not being used
 def hoihoi(image):
-    mask = apply_yellow_mask(image)    
+    mask = apply_yellow_mask(image)
 
     gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
 
-    contours, hierarchy = cv2.findContours(gray,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+    contours, hierarchy = cv2.findContours(gray, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     con = contours[0]
     for c in contours:
         if len(c) > len(con):
-            con = c 
-    contour = np.zeros((len(image),len(image[0])))
+            con = c
+    contour = np.zeros((len(image), len(image[0])))
     for pixel in con:
         i = pixel[0][1]
         j = pixel[0][0]
@@ -75,10 +81,12 @@ def hoihoi(image):
     angle = arr[-1]
     if angle < -45:
         angle = angle + 90
-    center = (int(len(image[0])/2),int(len(image)/2))
+    center = (int(len(image[0]) / 2), int(len(image) / 2))
     M = cv2.getRotationMatrix2D(center, angle, 1.0)
-    rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))  
+    rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))
     # plotImage(rotated, str(angle))
+
+
 # def choose_best_angle(image):
 #     rec = np.zeros((100,100))
 #     rec[44,26:75] = 255
@@ -94,20 +102,20 @@ def hoihoi(image):
 
 def get_plate(image):
     # apply yellow mask
-    mask = apply_yellow_mask(image) 
+    mask = apply_yellow_mask(image)
 
     # make grayscale
     gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
 
     # get all contours
-    contours, hierarchy = cv2.findContours(gray,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+    contours, hierarchy = cv2.findContours(gray, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
     # some variables for further use
-    center = (int(len(image[0])/2),int(len(image)/2))
+    center = (int(len(image[0]) / 2), int(len(image) / 2))
     ratio = float(47 / 11)
     finalbox = 0, 0, 0, 0
     finalangle = 0
-    difference = float('inf') 
+    difference = float('inf')
 
     # choose the best contour
     for c in contours:
@@ -117,7 +125,7 @@ def get_plate(image):
             continue
 
         # store the pixels of current contour
-        pixels = np.zeros((len(image),len(image[0])))
+        pixels = np.zeros((len(image), len(image[0])))
         for pixel in c:
             i = pixel[0][1]
             j = pixel[0][0]
@@ -129,12 +137,12 @@ def get_plate(image):
         if angle < -45:
             angle = angle + 90
         M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated = cv2.warpAffine(pixels, M, (len(image[0]), len(image))) 
+        rotated = cv2.warpAffine(pixels, M, (len(image[0]), len(image)))
 
         # get boundary box of this rotated version and calculate the height/width ratio
         mini, maxi, minj, maxj = get_bounding_box(rotated)
-        width = maxj-minj
-        height = maxi-mini
+        width = maxj - minj
+        height = maxi - mini
         if width < 2 or height < 2:
             continue
         diff = float(np.abs(float(ratio - float(width / height))))
@@ -145,13 +153,11 @@ def get_plate(image):
 
     # rotate the original image with the angle of the chosen contour
     M = cv2.getRotationMatrix2D(center, finalangle, 1.0)
-    rotated = cv2.warpAffine(image, M, (len(image[0]), len(image))) 
+    rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))
 
     # crop the rotated image with the boundary points of the chosen contour
-    crop = rotated[finalbox[0]:finalbox[1],finalbox[2]:finalbox[3]]
+    crop = rotated[finalbox[0]:finalbox[1], finalbox[2]:finalbox[3]]
     return crop
-
-
 
     # rotated[finalbox[0],finalbox[2]:finalbox[3]+1] = [0, 255, 0]
     # rotated[finalbox[1],finalbox[2]:finalbox[3]+1] = [0, 255, 0]
@@ -160,8 +166,6 @@ def get_plate(image):
     # return rotated
     # fourier = np.fft.fftshift(np.fft.fft2(crop))
     # theta = np.argmax(get_orientation_distribution(fourier))
-
-
 
 
 def get_boundary_boxes(image):
@@ -242,7 +246,7 @@ def get_boundary_boxes(image):
 
     return boxes
 
-
+# TODO not used
 def choose_final_box(boxes):
     # choose boundary box which shape is the closest to the 52cm by 11cm dutch license plate
     ratio = float(52 / 11)
@@ -260,7 +264,7 @@ def choose_final_box(boxes):
 
 def apply_yellow_mask(image):
     kernel = cv2.getGaussianKernel(30, 10)
-    image = cv2.filter2D(image, -1, kernel)  
+    image = cv2.filter2D(image, -1, kernel)
     # Define color range
     colorMin = np.array([10, 60, 60])
     colorMax = np.array([26, 255, 255])
@@ -274,6 +278,7 @@ def apply_yellow_mask(image):
     return masked
 
 
+# TODO not used
 def plate_detection(image):
     masked = apply_yellow_mask(image)
     gray = cv2.cvtColor(masked, cv2.COLOR_BGR2GRAY)
@@ -295,6 +300,7 @@ def plate_detection(image):
     return gray
 
 
+# TODO not used
 def draw_green_box(image):
     masked = apply_yellow_mask(image)
     gray = cv2.cvtColor(masked, cv2.COLOR_BGR2GRAY)
@@ -313,6 +319,7 @@ def draw_green_box(image):
     return result
 
 
+# TODO not used
 def draw_all_boxes(image):
     masked = apply_yellow_mask(image)
 
@@ -336,8 +343,6 @@ def draw_all_boxes(image):
                 result[box[1]][j] = 255
 
     return result
-
-
 
 
 def loadImage(filepath, filename, grayscale=True):

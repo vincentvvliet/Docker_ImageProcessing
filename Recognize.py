@@ -108,9 +108,28 @@ def difference_score(test_image, reference_character):
 
 
 def give_label_two_scores(test_image):
+    # TODO implement sift????
+    # sift = cv2.SIFT_create()
+    #
+    # keypoints_1, descriptors_test = sift.detectAndCompute(test_image, None)
+    #
+    # # feature matching
+    # bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck=True)
+    #
+    # match_array = []
+    # for key, value in reference_characters.items():
+    #     keypoints, descriptors = sift.detectAndCompute(value, None)
+    #     match_array.append([key, sorted(bf.match(descriptors_test, descriptors), key = lambda x:x.distance)])
+    #
+    # min = ['0',float('inf')]
+    # for match in match_array:
+    #     if match[1][0].distance < min[1]:
+    #         min = [match[0],match[1][0].distance]
+    #
+    # print(min)
+
     # Get the difference score with each of the reference characters
 
-    # TODO check if necessary
     # Erode to remove noise
     test_image = cv2.erode(test_image, np.ones((2, 2)))
 

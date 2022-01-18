@@ -55,6 +55,7 @@ def get_bounding_box(image):
                     maxj = j
     return mini, maxi, minj, maxj
 
+#TODO not being used
 def hoihoi(image):
     mask = apply_yellow_mask(image)    
 
@@ -341,11 +342,3 @@ def draw_all_boxes(image):
 
 def loadImage(filepath, filename, grayscale=True):
     return cv2.imread(filepath + filename, cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR)
-
-# img = loadImage("","TrainingSet/plate_basic_2.jpg")
-# fourier = np.fft.fftshift(np.fft.fft2(img))
-# theta = np.argmax(get_orientation_distribution(fourier))
-# center = (int(len(img[0])/2),int(len(img)/2))
-# M = cv2.getRotationMatrix2D(center, theta, 1.0)
-# rotated = cv2.warpAffine(img, M, (len(img[0]), len(img)))   
-# plotImage(rotated, "sick", cmapType='gray')

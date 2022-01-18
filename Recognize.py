@@ -82,12 +82,10 @@ def recognize(plate_imgs):
     for image in images:
         if len(recognized_chars) == dot1 or len(recognized_chars) == dot2:
             recognized_chars.append('-')
-        character = give_label_two_scores(image)
+        character = give_label_two_scores_sift(image)
         if character != AMBIGUOUS_RESULT:
             recognized_chars.append(character)
     # print("recognized:", recognized_chars)
-
-    # plotImage(plate_imgs)
     return recognized_chars
 
 
@@ -113,30 +111,74 @@ def setup():
 def difference_score(test_image, reference_character):
     reference_character = cv2.resize(reference_character, (len(test_image[0]), len(test_image)))
     # return the number of non-zero pixels
+
     return np.count_nonzero(cv2.bitwise_xor(test_image, reference_character))
 
+def get_gradient(image):
+    # Sobel gradient in x and y direction
+    Sobel_kernel_y = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
+    #TODO fill in the correct values for the Sobel gradient in Y direction
+    Sobel_kernel_x = np.array([[1,0,-1],[2,0,-2],[1,0,-1]])
+    #TODO fill in the correct values for the Sobel gradient in X direction
+    image2 = np.float64(image)
+    image3 = np.float64(image)
+    I_x = cv2.filter2D(image2, -1, Sobel_kernel_x)
+    I_y = cv2.filter2D(image3, -1, Sobel_kernel_y)
+    # Gradient magnitude
+    #TODO compute the "g" gradient magnitude function.
+    g = np.sqrt(I_x*I_x+I_y*I_y)
+    # Gradient orientation
+    #TODO compute the "theta" gradient orientation function.
+    I_x[I_x == 0] = 0.0001
+    theta = np.arctan(I_y/I_x)
+    return g, theta
+
+def get_sift(image):
+    image = cv2.resize(image, (16,16))
+    result = []
+    # Take only 16x16 window of the picture from the center
+    boundaries = [0, 4, 8, 12]
+    for i in boundaries:
+        for j in boundaries:
+            subwindow = image[i:i+4,j:j+4]
+            mag, ang = get_gradient(subwindow)
+            hist, bin_edges = np.histogram(ang, bins=8, weights=mag)
+            for value in hist:
+                result.append(value)
+            # Add the direction of the edge to the feature vector, scaled by its magnitude
+    result = np.array(result)
+    result /= np.linalg.norm(result)
+    return result
+
+def give_label_two_scores_sift(test_image):
+    distance = {}
+    for key, value in reference_characters.items():
+        distance[key] = np.linalg.norm(get_sift(test_image)-get_sift(value))
+    return min(distance, key=distance.get)
 
 def give_label_two_scores(test_image):
-    # TODO implement sift????
-    distance = {}
-    _, descriptors_test = sift.detectAndCompute(test_image, None)
 
-    # feature matching
+    # distance = {}
+    # _, descriptors_test = sift.detectAndCompute(test_image, None)
+
+    # # feature matching
     # bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck=True)
 
     # match_array = []
     # for key, value in reference_characters.items():
     #     keypoints, descriptors = sift.detectAndCompute(value, None)
-    for label, value in sift_database.items():
-        distance[label] = compare_euclidean_norm(descriptors_test[0], value)
+    # for label, value in sift_database.items():
+    #     distance[label] = compare_euclidean_norm(descriptors_test[0], value)
 
     # min = ['0', float('inf')]
     # for match in match_array:
     #     if match[1][0].distance < min[1]:
     #         min = [match[0], match[1][0].distance]
 
-    # TODO weird min values?
-    print('Min:',min(distance, key=distance.get))
+    # # TODO weird min values?
+    # print('Min:',min(distance, key=distance.get))
+
+
 
     # Get the difference score with each of the reference characters
 
@@ -147,11 +189,14 @@ def give_label_two_scores(test_image):
     for key, value in reference_characters.items():
         # Debug scores
         # print("key",key,"score:",difference_score(test_image, value))
-        difference_scores.append(difference_score(test_image, value))
+        difference_scores.append(difference_score(test_image, value))    
 
     difference_scores = np.array(difference_scores)
+
+
     A, B = np.partition(difference_scores, 1)[0:2]
     result_char = 0
+
 
     # Check if the ratio of the two scores is close to 1 (if so return AMBIGUOUS_RESULT)
     for key, value in reference_characters.items():
@@ -208,6 +253,7 @@ def crop_to_boundingbox(image):
 
 
 def seperate(image):
+
     # plotImage(image)
     # convert to grayscale
     plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -325,6 +371,7 @@ def seperate(image):
         # TODO check if necessary
         char = crop_to_boundingbox(char)
         characters.append(char)
+
     return characters, dot1, dot2
 
     # for i in range(len(image)):

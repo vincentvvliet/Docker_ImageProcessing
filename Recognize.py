@@ -25,10 +25,6 @@ def plotImage(img, title=""):
     plt.show()
 
 
-def compare_euclidean_norm(a, b):
-    return np.linalg.norm(a - b)
-
-
 def loadImage(filepath, filename, grayscale=True):
     return cv2.imread(filepath + filename, cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR)
 
@@ -71,9 +67,9 @@ def segment_and_recognize(plate_imgs, frame):
     recognized_plates.append(plate_info)
 
     # Only write at the end
-    if frame > 1700:
+    # if frame > 1700:
         # Write to csv
-        write(recognized_plates)
+    write(recognized_plates)
 
 
 def recognize(plate_imgs):
@@ -82,7 +78,7 @@ def recognize(plate_imgs):
     for image in images:
         if len(recognized_chars) == dot1 or len(recognized_chars) == dot2:
             recognized_chars.append('-')
-        character = give_label_two_scores_sift(image)
+        character = give_label_two_scores(image)
         if character != AMBIGUOUS_RESULT:
             recognized_chars.append(character)
     # print("recognized:", recognized_chars)
@@ -114,33 +110,29 @@ def difference_score(test_image, reference_character):
 
     return np.count_nonzero(cv2.bitwise_xor(test_image, reference_character))
 
+
 def get_gradient(image):
     # Sobel gradient in x and y direction
-    Sobel_kernel_y = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
-    #TODO fill in the correct values for the Sobel gradient in Y direction
-    Sobel_kernel_x = np.array([[1,0,-1],[2,0,-2],[1,0,-1]])
-    #TODO fill in the correct values for the Sobel gradient in X direction
-    image2 = np.float64(image)
-    image3 = np.float64(image)
-    I_x = cv2.filter2D(image2, -1, Sobel_kernel_x)
-    I_y = cv2.filter2D(image3, -1, Sobel_kernel_y)
+    Sobel_kernel_y = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
+    Sobel_kernel_x = np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
+    I_x = cv2.filter2D(np.float64(image), -1, Sobel_kernel_x)
+    I_y = cv2.filter2D(np.float64(image), -1, Sobel_kernel_y)
     # Gradient magnitude
-    #TODO compute the "g" gradient magnitude function.
-    g = np.sqrt(I_x*I_x+I_y*I_y)
+    gradient = np.hypot(I_x, I_y)
     # Gradient orientation
-    #TODO compute the "theta" gradient orientation function.
     I_x[I_x == 0] = 0.0001
-    theta = np.arctan(I_y/I_x)
-    return g, theta
+    theta = np.arctan(I_y / I_x)
+    return gradient, theta
+
 
 def get_sift(image):
-    image = cv2.resize(image, (16,16))
+    image = cv2.resize(image, (16, 16))
     result = []
     # Take only 16x16 window of the picture from the center
     boundaries = [0, 4, 8, 12]
     for i in boundaries:
         for j in boundaries:
-            subwindow = image[i:i+4,j:j+4]
+            subwindow = image[i:i + 4, j:j + 4]
             mag, ang = get_gradient(subwindow)
             hist, bin_edges = np.histogram(ang, bins=8, weights=mag)
             for value in hist:
@@ -150,37 +142,40 @@ def get_sift(image):
     result /= np.linalg.norm(result)
     return result
 
+
 def give_label_two_scores_sift(test_image):
     distance = {}
     for key, value in reference_characters.items():
-        distance[key] = np.linalg.norm(get_sift(test_image)-get_sift(value))
+        distance[key] = np.linalg.norm(get_sift(test_image) - get_sift(value))
     return min(distance, key=distance.get)
 
-def give_label_two_scores(test_image):
 
+def give_label_two_scores(test_image):
     # distance = {}
     # _, descriptors_test = sift.detectAndCompute(test_image, None)
-
+    #
     # # feature matching
     # bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck=True)
-
-    # match_array = []
-    # for key, value in reference_characters.items():
-    #     keypoints, descriptors = sift.detectAndCompute(value, None)
-    # for label, value in sift_database.items():
-    #     distance[label] = compare_euclidean_norm(descriptors_test[0], value)
-
-    # min = ['0', float('inf')]
-    # for match in match_array:
-    #     if match[1][0].distance < min[1]:
-    #         min = [match[0], match[1][0].distance]
-
-    # # TODO weird min values?
-    # print('Min:',min(distance, key=distance.get))
-
-
+    #
+    # # match_array = []
+    # # for key, value in reference_characters.items():
+    # #     keypoints, descriptors = sift.detectAndCompute(value, None)
+    #
+    # arr = []
+    # for label, sift_descriptor in sift_database.items():
+    #     matches = bf.knnMatch(descriptors_test, sift_descriptor, k=2);
+    #     good = [[m] for m, n in matches if m.distance < 0.7*n.distance]
+    #     arr.append(good)
+    #
+    # print(arr)
+    # # for label, value in sift_database.items():
+    # #     distance[label] = np.linalg.norm(descriptors_test - value)
+    #
+    # # print(distance)
+    # # print('Min:',min(distance, key=distance.get))
 
     # Get the difference score with each of the reference characters
+    plotImage(test_image)
 
     # Erode to remove noise
     test_image = cv2.erode(test_image, np.ones((2, 2)))
@@ -189,14 +184,12 @@ def give_label_two_scores(test_image):
     for key, value in reference_characters.items():
         # Debug scores
         # print("key",key,"score:",difference_score(test_image, value))
-        difference_scores.append(difference_score(test_image, value))    
+        difference_scores.append(difference_score(test_image, value))
 
     difference_scores = np.array(difference_scores)
 
-
     A, B = np.partition(difference_scores, 1)[0:2]
     result_char = 0
-
 
     # Check if the ratio of the two scores is close to 1 (if so return AMBIGUOUS_RESULT)
     for key, value in reference_characters.items():
@@ -253,7 +246,6 @@ def crop_to_boundingbox(image):
 
 
 def seperate(image):
-
     # plotImage(image)
     # convert to grayscale
     plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -273,22 +265,22 @@ def seperate(image):
     # plotImage(threshInv)
 
     # use epsilon, this is
-    epsilon = 0.05 * len(plate[0])
+    epsilon = 0.07 * len(plate[0])
 
     # after observing multiple plates, I saw that each character has a width of approximately 10% of the plate's width
-    charwidth = 0.1 * len(plate[0])
+    char_width = 0.1 * len(plate[0])
 
     boxes = []
     overlap = np.array([])
-    while (len(boxes) < 6 and len(overlap) < len(plate[0]) - int(charwidth)):
+    while (len(boxes) < 6 and len(overlap) < len(plate[0]) - int(char_width)):
         minwhite = 2 * len(plate)
         box = (0, 0)
-        for j in range(int(len(plate[0]) - charwidth - epsilon)):
+        for j in range(int(len(plate[0]) - char_width - epsilon)):
             if j not in overlap:
                 whites = cv2.countNonZero(plate[:, j])
-                for jj in range(int(j + charwidth), int(j + charwidth + epsilon)):
+                for jj in range(int(j + char_width), int(j + char_width + epsilon)):
                     if (not np.in1d(overlap, np.arange(j, jj)).any()) and whites + cv2.countNonZero(
-                            plate[:, jj]) < minwhite:
+                            plate[:, jj]) < minwhite and cv2.countNonZero(plate[j:jj+1]) > 5:
                         minwhite = whites + cv2.countNonZero(plate[:, jj])
                         box = (j, jj)
         overlap = np.concatenate((overlap, np.arange(box[0], box[1] + 1)))

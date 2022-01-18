@@ -57,7 +57,7 @@ def segment_and_recognize(plate_imgs, frame):
 
     # Append the reconised characters, frame no. and time (rounded down)
     plate_info.append(plate)
-    plate_info.append(frame + 1)
+    plate_info.append(frame)
     plate_info.append(round(frame / 12))
 
     # Add to list of known plates
@@ -110,6 +110,7 @@ def difference_score(test_image, reference_character):
 def give_label_two_scores(test_image):
     # Get the difference score with each of the reference characters
 
+    # TODO check if necessary
     # Erode to remove noise
     test_image = cv2.erode(test_image, np.ones((2, 2)))
 
@@ -175,9 +176,11 @@ def crop_to_boundingbox(image):
 
 
 def seperate(image):
-
+    plotImage(image)
     # convert to grayscale
     plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(plate, (7, 7), 0)
+    (T, threshInv) = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
 
     # use mean of all colors as threshold and convert to binary where characters are white and background black
     threshold = np.mean(plate)
@@ -187,6 +190,9 @@ def seperate(image):
                 plate[i][j] = 255
             else:
                 plate[i][j] = 0
+
+    # plotImage(plate)
+    # plotImage(threshInv)
 
     # use epsilon, this is
     epsilon = 0.05 * len(plate[0])
@@ -286,6 +292,7 @@ def seperate(image):
     for box in boxes:
         char = plate[ymin:ymax, box[0]:box[1]]
         # eventueel dilate en erode om mooier te maken
+        # TODO check if necessary
         char = crop_to_boundingbox(char)
         characters.append(char)
     return characters, dot1, dot2
@@ -378,9 +385,3 @@ def seperate(image):
     #     if imax - imin < 0.25*len(plate) or jmax - jmin < 0.025*len(plate[0]):
     #         plate[imin:imax,jmin:jmax] = 0
 
-# setup()
-# for image in plate_imgs:
-#     plotImage(image, give_label_two_scores(image))
-# for i in range(2, 8):
-#     image_name = "Video" + str(i) + "_2.avi"
-#     test_images.append(loadImage("TrainingSet/Categorie I", image_name))

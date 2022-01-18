@@ -5,7 +5,8 @@ import cv2
 from Localization import get_plate
 from Recognize import segment_and_recognize
 
-INVALID = [576,600,768,984,1104,1128,1176,1224, 1368, 1416, 1440, 1464, 1512, 1560, 1608]
+# Plates where localization fails
+INVALID = [601, 769, 913, 985, 1129, 1177, 1225, 1369, 1417, 1441, 1465, 1513, 1561, 1609]
 
 
 def get_args():
@@ -27,26 +28,23 @@ count = -1
 # Read until video is completed
 while cap.isOpened():
     count += 1
+
     # Capture frame-by-frame
     ret, frame = cap.read()
     if ret == True:
-        if count % 24 == 0 and count < 1730 and count > 0:
+        # Frame skipping s.t. Category IV is skipped and frames are not on boundary of interval in evaluator
+        if (count - 1) % 24 == 0 and count < 1730 and count > 912 and count not in INVALID:
             print(count)
-            if count in INVALID:
-                continue
-            # dummy arguments for sample frequency and save_path should be changed
             # a = bramsgelul(frame)
             # if a!=999:
             #     center = (int(len(frame[0])/2),int(len(frame)/2))
             #     M = cv2.getRotationMatrix2D(center, a, 1.0)
-            #     rotated = cv2.warpAffine(frame, M, (len(frame[0]), len(frame)))    
+            #     rotated = cv2.warpAffine(frame, M, (len(frame[0]), len(frame)))
+            # DEBUG functions
             # detections = draw_all_boxes(frame) # STEP 1
             # detections = draw_green_box(frame) # STEP 2
             # detections = plate_detection(frame) # STEP 3
             segment_and_recognize(get_plate(frame), count)
-            # # Display the resulting frame
-            # replace with detections
-            # cv2.imwrite("Results/frame_%d.jpg" % count, detections)
 
             # Press Q on keyboard to  exit
             if cv2.waitKey(25) & 0xFF == ord('q'):

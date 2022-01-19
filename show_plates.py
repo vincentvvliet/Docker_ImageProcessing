@@ -34,7 +34,7 @@ while cap.isOpened():
     ret, frame = cap.read()
     if ret == True:
         # Frame skipping s.t. Category IV is skipped and frames are not on boundary of interval in evaluator
-        if (count - 1) % 24 == 0 and count < 1730:
+        if (count - 1) % 24 == 0:
             print(count)
 
             indices, angles, boxes = get_all_contours_info(frame)

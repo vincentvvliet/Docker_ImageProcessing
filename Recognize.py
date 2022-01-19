@@ -79,7 +79,7 @@ def segment_and_recognize(image, sorted_indices, angles, boxes, frame):
 
 def recognize(image, sorted_indices, angles, boxes):
     recognized_chars = []
-
+    good = False
     center = (int(len(image[0]) / 2), int(len(image) / 2))
     for i in sorted_indices:
         M = cv2.getRotationMatrix2D(center, angles[i], 1.0)

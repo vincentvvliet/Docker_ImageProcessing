@@ -57,16 +57,13 @@ def segment_and_recognize(image, frame):
     binary = make_binary(image)
     char_images, dot1, dot2 = seperate(binary)
     recognized_chars = recognize(char_images, binary)
-    
+
     recognized = []
     for char in recognized_chars:
         if len(recognized) == dot1 or len(recognized) == dot2:
             recognized.append('-')
         recognized.append(char)
     # print(recognized)
-    # if len(recognized) < 8:
-    #     # VINCENT IS DIT GOED????????????????????????????
-    #     return
     plate = '\''
     for char in recognized:
         plate += char
@@ -81,26 +78,25 @@ def segment_and_recognize(image, frame):
     recognized_plates.append(plate_info)
 
     # Only write at the end
-    # if frame > 1700:
+    # if frame > 2000:
         # Write to csv
     write(recognized_plates)
-
 
 
 def recognize(images, plate):
     recognized_chars = []
     char_height = int(float(0.17 * len(plate[0])))
-    best_score = float('inf')      
-    for i in range(int(len(plate) - char_height)-1):
+    best_score = float('inf')
+    for i in range(int(len(plate) - char_height) - 1):
         chars = []
         total_score = 0
         for image in images:
-            cropped = image[i:i+char_height]
+            cropped = image[i:i + char_height]
             cropped = crop_to_boundingbox(cropped)
             if len(cropped) < 2 or len(cropped[0]) < 2:
                 total_score = float('inf')
                 break
-            character, score = give_label_two_scores2(cropped)
+            character, score = give_label_two_scores(cropped)
             total_score += score
             chars.append(character)
         if total_score < best_score:
@@ -157,8 +153,7 @@ def difference_score(test_image, reference_character):
     return np.count_nonzero(cv2.bitwise_xor(test_image, reference_character))
 
 
-def give_label_two_scores2(test_image):
-
+def give_label_two_scores(test_image):
     # Erode to remove noise
     test_image = cv2.erode(test_image, np.ones((2, 2)))
 
@@ -187,40 +182,6 @@ def give_label_two_scores2(test_image):
 
     # Return a single character based on the lowest score
     return result_char, A
-
-
-def give_label_two_scores(test_image):
-
-    # Erode to remove noise
-    test_image = cv2.erode(test_image, np.ones((2, 2)))
-
-    difference_scores = []
-    for key, value in reference_characters.items():
-        # Debug scores
-        # print("key",key,"score:",difference_score(test_image, value))
-        difference_scores.append(difference_score(test_image, value))
-
-    difference_scores = np.array(difference_scores)
-
-    A, B = np.partition(difference_scores, 1)[0:2]
-    result_char = 0
-
-    # Check if the ratio of the two scores is close to 1 (if so return AMBIGUOUS_RESULT)
-    for key, value in reference_characters.items():
-        if difference_score(test_image, value) == A:
-            # Debug which reference is closest to image
-            # plotImage(test_image)
-            # plotImage(value)
-            result_char = key
-
-    ratio = A / B
-    # print("ratio:", ratio)
-    if ratio > 1 - EPSILON and ratio < 1 + EPSILON:
-        ambiguous.append(A)
-    #     return AMBIGUOUS_RESULT
-
-    # Return a single character based on the lowest score
-    return result_char
 
 
 def write(plates):
@@ -258,6 +219,7 @@ def crop_to_boundingbox(image):
                     maxj = j
     return image[mini:maxi + 1, minj:maxj + 1]
 
+
 def get_horizontal_positions(plate):
     # use epsilon, this is
     epsilon = 0.05 * len(plate[0])
@@ -280,10 +242,10 @@ def get_horizontal_positions(plate):
                 # number of white pixels in first column
                 whites = cv2.countNonZero(plate[:, j])
                 # for the second column, try all indices between margin
-                for jj in range(int(j + char_width), int(j + char_width + epsilon)):    
+                for jj in range(int(j + char_width), int(j + char_width + epsilon)):
                     # keep column pair that does not overlap other boxes and has the least amount of white pixels              
                     if (not np.in1d(overlap, np.arange(j, jj)).any()) and whites + cv2.countNonZero(
-                            plate[:, jj]) < minwhite and cv2.countNonZero(plate[:,j:jj+1]) > 5:
+                            plate[:, jj]) < minwhite and cv2.countNonZero(plate[:, j:jj + 1]) > 5:
                         # update the minimum whites found
                         minwhite = whites + cv2.countNonZero(plate[:, jj])
                         # store pair
@@ -295,14 +257,16 @@ def get_horizontal_positions(plate):
 
     # make sure all boxes are found, if not, replace boxes by simply dividing image by 6
     for box in boxes:
-        if box[1]-box[0] < 2 or len(boxes) < 6:
+        if box[1] - box[0] < 2 or len(boxes) < 6:
             boxes = []
             for i in range(1, 7):
-                boxes.append((int(i*(len(plate[0])/7.0)-(char_width/2.0)), int(i*(len(plate[0])/7.0)+(char_width/2.0))))
+                boxes.append((int(i * (len(plate[0]) / 7.0) - (char_width / 2.0)),
+                              int(i * (len(plate[0]) / 7.0) + (char_width / 2.0))))
             break
 
     boxes.sort()
     return boxes
+
 
 def make_binary(image):
     # convert to grayscale
@@ -317,6 +281,7 @@ def make_binary(image):
             else:
                 plate[i][j] = 0
     return plate
+
 
 def seperate(plate):
     # get horizontal character interval boundaries
@@ -344,12 +309,9 @@ def seperate(plate):
 
     characters = []
     for box in boxes:
-        char = plate[:,box[0]:box[1]]
+        char = plate[:, box[0]:box[1]]
         characters.append(char)
     return characters, dot1, dot2
-
-
-
 
     # # find height of two dots
     # # first manually find contours from the matching white pixels of the centers of the two just found gaps
@@ -389,7 +351,6 @@ def seperate(plate):
     # if finalindex < float(heightchar / 2.0) or finalindex > len(plate) - float(heightchar / 2.0):
     #     finalindex = int(len(plate) / 2)
 
-
     # finalindex += int(0.02 * len(plate))
     # # vertical boundaries
     # ymin = finalindex - int(heightchar / 2)
@@ -413,4 +374,3 @@ def seperate(plate):
     #     characters.append(char)
 
     # return characters, dot1, dot2, True
-

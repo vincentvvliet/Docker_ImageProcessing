@@ -17,6 +17,11 @@ Hints:
 	1. You may need to define other functions, such as crop and adjust function
 	2. You may need to define two ways for localizing plates(yellow or other colors)
 """
+indices = []
+angles = []
+boxes = []
+current_image = np.array([])
+
 
 def plotImage(img, title="", cmapType=None):
     # Display image
@@ -59,7 +64,15 @@ def get_bounding_box(image):
                     maxj = j
     return mini, maxi, minj, maxj
 
-def get_all_contours_info(image):
+def find_plate(image):
+    global indices
+    global boxes
+    global angles
+    global current_image
+    indices = []
+    boxes = []
+    angles = []
+    current_image = image
     # apply yellow mask
     mask = apply_yellow_mask(image)
 
@@ -69,13 +82,11 @@ def get_all_contours_info(image):
     # get all contours
     contours, hierarchy = cv2.findContours(gray, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
-    differences = []
-    boxes = []
-    angles = []
     count = 0
     # some variables for further use
     center = (int(len(image[0]) / 2), int(len(image) / 2))
     ratio = float(47 / 11)
+    differences = []
 
     # choose the best contour
     for c in contours:
@@ -118,69 +129,91 @@ def get_all_contours_info(image):
         angles.append(angle)
         count += 1
 
-    differences = np.argsort(np.array(differences))[0:4]
-    return differences[0:count], angles, boxes
+    if len(differences) < 1:
+        return np.array([]), False
 
+    indices = np.argsort(np.array(differences))
+    indices = indices[0:count]
 
-def get_plate(image):
-    # apply yellow mask
-    mask = apply_yellow_mask(image)
+    # for i in range(len(indices)):
+    #     img, found = get_plate(i)
+    #     plotImage(img)
 
-    # make grayscale
-    gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    plate, found = get_plate(0)
+    return plate, found
 
-    # get all contours
-    contours, hierarchy = cv2.findContours(gray, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-
-    # some variables for further use
-    center = (int(len(image[0]) / 2), int(len(image) / 2))
-    ratio = float(47 / 11)
-    finalbox = 0, 0, 0, 0
-    finalangle = 0
-    difference = float('inf')
-
-    # choose the best contour
-    for c in contours:
-
-        # skip the ones with less than 20 pixels
-        if len(c) < 40:
-            continue
-
-        # store the pixels of current contour
-        pixels = np.zeros((len(image), len(image[0])))
-        for pixel in c:
-            i = pixel[0][1]
-            j = pixel[0][0]
-            pixels[i][j] = 255
-
-        # get the orientation angle and rotate the contour
-        arr = cv2.minAreaRect(c)
-        angle = arr[-1]
-        if angle < -45:
-            angle = angle + 90
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated = cv2.warpAffine(pixels, M, (len(image[0]), len(image)))
-
-        # get boundary box of this rotated version and calculate the height/width ratio
-        mini, maxi, minj, maxj = get_bounding_box(rotated)
-        width = maxj - minj
-        height = maxi - mini
-        if width < 15 or height < 4:
-            continue
-
-        diff = float(np.abs(float(ratio - float(width / height))))
-        if diff < difference:
-            difference = diff
-            finalbox = mini, maxi, minj, maxj
-            finalangle = angle
-
+def get_plate(number):
+    global current_image
+    if number >= len(indices):
+        return np.array([]), False
     # rotate the original image with the angle of the chosen contour
-    M = cv2.getRotationMatrix2D(center, finalangle, 1.0)
-    rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))
+    center = (int(len(current_image[0]) / 2), int(len(current_image) / 2))
+    M = cv2.getRotationMatrix2D(center, angles[indices[number]], 1.0)
+    rotated = cv2.warpAffine(current_image, M, (len(current_image[0]), len(current_image)))
 
     # crop the rotated image with the boundary points of the chosen contour
-    crop = rotated[finalbox[0]:finalbox[1], finalbox[2]:finalbox[3]]
-    return crop
+    crop = rotated[boxes[indices[number]][0]:boxes[indices[number]][1], boxes[indices[number]][2]:boxes[indices[number]][3]]
+    return crop, True
+
+# def get_plate(image):
+#     # apply yellow mask
+#     mask = apply_yellow_mask(image)
+
+#     # make grayscale
+#     gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+
+#     # get all contours
+#     contours, hierarchy = cv2.findContours(gray, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+
+#     # some variables for further use
+#     center = (int(len(image[0]) / 2), int(len(image) / 2))
+#     ratio = float(47 / 11)
+#     finalbox = 0, 0, 0, 0
+#     finalangle = 0
+#     difference = float('inf')
+
+#     # choose the best contour
+#     for c in contours:
+
+#         # skip the ones with less than 20 pixels
+#         if len(c) < 40:
+#             continue
+
+#         # store the pixels of current contour
+#         pixels = np.zeros((len(image), len(image[0])))
+#         for pixel in c:
+#             i = pixel[0][1]
+#             j = pixel[0][0]
+#             pixels[i][j] = 255
+
+#         # get the orientation angle and rotate the contour
+#         arr = cv2.minAreaRect(c)
+#         angle = arr[-1]
+#         if angle < -45:
+#             angle = angle + 90
+#         M = cv2.getRotationMatrix2D(center, angle, 1.0)
+#         rotated = cv2.warpAffine(pixels, M, (len(image[0]), len(image)))
+
+#         # get boundary box of this rotated version and calculate the height/width ratio
+#         mini, maxi, minj, maxj = get_bounding_box(rotated)
+#         width = maxj - minj
+#         height = maxi - mini
+#         if width < 15 or height < 4:
+#             continue
+
+#         diff = float(np.abs(float(ratio - float(width / height))))
+#         if diff < difference:
+#             difference = diff
+#             finalbox = mini, maxi, minj, maxj
+#             finalangle = angle
+
+#     # rotate the original image with the angle of the chosen contour
+#     M = cv2.getRotationMatrix2D(center, finalangle, 1.0)
+#     rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))
+
+#     # crop the rotated image with the boundary points of the chosen contour
+#     crop = rotated[finalbox[0]:finalbox[1], finalbox[2]:finalbox[3]]
+#     return crop
 
 
 
@@ -283,7 +316,7 @@ def apply_yellow_mask(image):
     kernel = cv2.getGaussianKernel(30, 10)
     image = cv2.filter2D(image, -1, kernel)
     # Define color range
-    colorMin = np.array([10, 60, 60])
+    colorMin = np.array([1, 60, 60])
     colorMax = np.array([26, 255, 255])
 
     # Segment only the selected color from the image and leave out all the rest (apply a mask)

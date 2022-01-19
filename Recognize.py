@@ -3,6 +3,7 @@ import csv
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+from Localization import get_plate
 
 AMBIGUOUS_RESULT = "AMBIGUOUS"
 EPSILON = 0.15
@@ -44,20 +45,48 @@ Outputs:(One)
 Hints:
 	You may need to define other functions.
 """
+def try_other_contours():
+    count = 0
+    recognized_chars = []
+    dot1 = 2
+    dot2 = 5
+    while(len(recognized_chars) != 6 or dot1 == 0 or dot2 == 0 or dot1 == 7 or dot2 == 7 or abs(dot1-dot2) < 2 or abs(dot1-dot2) > 4 or (dot1 > 3 and dot2 > 3) or (dot1 < 4 and dot2 < 4)):
+        count += 1
+        image, found = get_plate(count)
+        if not found:
+            break
+
+        if len(image) > 1 and len(image[0]) > 1:
+            binary = make_binary(image)
+            if cv2.countNonZero(binary) != 0:
+                char_images, dot1, dot2 = seperate(binary)
+                recognized_chars = recognize(char_images, binary)
+
+    return recognized_chars, dot1, dot2
 
 
-def segment_and_recognize(image, frame):
+def segment_and_recognize(image, found, frame):
     # Call setup only once
     setup()
     # Main functionality
     plate_info = []
-    if len(image) < 2 or len(image[0]) < 2:
+    if not found:
         return
+    dot1 = 2
+    dot2 = 5
 
-    binary = make_binary(image)
-    char_images, dot1, dot2 = seperate(binary)
-    recognized_chars = recognize(char_images, binary)
-    
+    recognized_chars = []
+    if len(image) > 1 and len(image[0]) > 1:
+        binary = make_binary(image)
+        if cv2.countNonZero(binary) != 0:
+            char_images, dot1, dot2 = seperate(binary)
+            recognized_chars = recognize(char_images, binary)
+
+
+    if len(recognized_chars) != 6 or dot1 == 0 or dot2 == 0 or dot1 == 7 or dot2 == 7 or abs(dot1-dot2) < 2 or abs(dot1-dot2) > 4 or (dot1 > 3 and dot2 > 3) or (dot1 < 4 and dot2 < 4):
+        recognized_chars, dot1, dot2 = try_other_contours()
+
+
     recognized = []
     for char in recognized_chars:
         if len(recognized) == dot1 or len(recognized) == dot2:
@@ -179,11 +208,9 @@ def give_label_two_scores2(test_image):
             # plotImage(value)
             result_char = key
 
-    ratio = A / B
-    # print("ratio:", ratio)
-    if ratio > 1 - EPSILON and ratio < 1 + EPSILON:
-        ambiguous.append(A)
-    #     return AMBIGUOUS_RESULT
+    # ratio = A / B
+    # if ratio > 1 - EPSILON and ratio < 1 + EPSILON:
+    #     ambiguous.append(A)
 
     # Return a single character based on the lowest score
     return result_char, A
@@ -240,7 +267,8 @@ def write(plates):
 
 
 def crop_to_boundingbox(image):
-    # plotImage(image)
+    if len(image) < 2 or len(image[0]) < 2:
+        return image
     mini = len(image)
     minj = len(image[0])
     maxi = 0
@@ -292,6 +320,7 @@ def get_horizontal_positions(plate):
         overlap = np.concatenate((overlap, np.arange(box[0], box[1] - 2)))
         # store box
         boxes.append(box)
+
 
     # make sure all boxes are found, if not, replace boxes by simply dividing image by 6
     for box in boxes:

@@ -3,7 +3,7 @@ import argparse
 import cv2
 
 from Localization import get_plate
-from Localization import get_all_contours_info
+from Localization import find_plate
 from Recognize import segment_and_recognize
 
 # Plates where localization fails
@@ -38,8 +38,8 @@ while cap.isOpened():
             print(count)
 
             # indices, angles, boxes = get_all_contours_info(frame)
-            # segment_and_recognize(frame, indices, angles, boxes, count)
-            segment_and_recognize(get_plate(frame), count)
+            plate, found = find_plate(frame)
+            segment_and_recognize(plate, found, count)
 
             # Press Q on keyboard to  exit
             if cv2.waitKey(25) & 0xFF == ord('q'):

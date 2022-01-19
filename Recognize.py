@@ -53,8 +53,12 @@ def segment_and_recognize(plate_imgs, frame):
     plate_info = []
 
     # Add plate characters in correct format
+    recognized = recognize(plate_imgs)
+    if len(recognized) < 8:
+        # VINCENT IS DIT GOED????????????????????????????
+        return
     plate = '\''
-    for char in recognize(plate_imgs):
+    for char in recognized:
         plate += char
     plate += '\''
 
@@ -74,14 +78,16 @@ def segment_and_recognize(plate_imgs, frame):
 
 def recognize(plate_imgs):
     recognized_chars = []
-    images, dot1, dot2 = seperate(plate_imgs)
+    images, dot1, dot2, good = seperate(plate_imgs)
+    if not good:
+        return []
     for image in images:
         if len(recognized_chars) == dot1 or len(recognized_chars) == dot2:
             recognized_chars.append('-')
         character = give_label_two_scores(image)
         if character != AMBIGUOUS_RESULT:
             recognized_chars.append(character)
-    # print("recognized:", recognized_chars)
+    print("recognized:", recognized_chars)
     return recognized_chars
 
 
@@ -111,44 +117,6 @@ def difference_score(test_image, reference_character):
     return np.count_nonzero(cv2.bitwise_xor(test_image, reference_character))
 
 
-def get_gradient(image):
-    # Sobel gradient in x and y direction
-    Sobel_kernel_y = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
-    Sobel_kernel_x = np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
-    I_x = cv2.filter2D(np.float64(image), -1, Sobel_kernel_x)
-    I_y = cv2.filter2D(np.float64(image), -1, Sobel_kernel_y)
-    # Gradient magnitude
-    gradient = np.hypot(I_x, I_y)
-    # Gradient orientation
-    I_x[I_x == 0] = 0.0001
-    theta = np.arctan(I_y / I_x)
-    return gradient, theta
-
-
-def get_sift(image):
-    image = cv2.resize(image, (16, 16))
-    result = []
-    # Take only 16x16 window of the picture from the center
-    boundaries = [0, 4, 8, 12]
-    for i in boundaries:
-        for j in boundaries:
-            subwindow = image[i:i + 4, j:j + 4]
-            mag, ang = get_gradient(subwindow)
-            hist, bin_edges = np.histogram(ang, bins=8, weights=mag)
-            for value in hist:
-                result.append(value)
-            # Add the direction of the edge to the feature vector, scaled by its magnitude
-    result = np.array(result)
-    result /= np.linalg.norm(result)
-    return result
-
-
-def give_label_two_scores_sift(test_image):
-    distance = {}
-    for key, value in reference_characters.items():
-        distance[key] = np.linalg.norm(get_sift(test_image) - get_sift(value))
-    return min(distance, key=distance.get)
-
 
 def give_label_two_scores(test_image):
     # distance = {}
@@ -175,7 +143,6 @@ def give_label_two_scores(test_image):
     # # print('Min:',min(distance, key=distance.get))
 
     # Get the difference score with each of the reference characters
-    plotImage(test_image)
 
     # Erode to remove noise
     test_image = cv2.erode(test_image, np.ones((2, 2)))
@@ -244,9 +211,53 @@ def crop_to_boundingbox(image):
                     maxj = j
     return image[mini:maxi + 1, minj:maxj + 1]
 
+def get_horizontal_positions(plate):
+    # use epsilon, this is
+    epsilon = 0.05 * len(plate[0])
+    # after observing multiple plates, we saw that each character has a width of approximately 10% of the plate's width
+    char_width = 0.1 * len(plate[0])
+    # boxes will contain 6 pairs of columns indices, called a box, where each pair is the horizontal interval of one character
+    boxes = []
+    # make sure boxes don't overlap
+    overlap = np.array([])
+
+    # find a pair six times, or stop when no space left 
+    while (len(boxes) < 6 and len(overlap) < len(plate[0]) - int(char_width)):
+        # minimum number of white pixels in column pair
+        minwhite = 2 * len(plate)
+
+        box = (0, 0)
+        # for each column thats not in overlap
+        for j in range(int(len(plate[0]) - char_width - epsilon)):
+            if j not in overlap:
+                # number of white pixels in first column
+                whites = cv2.countNonZero(plate[:, j])
+                # for the second column, try all indices between margin
+                for jj in range(int(j + char_width), int(j + char_width + epsilon)):    
+                    # keep column pair that does not overlap other boxes and has the least amount of white pixels              
+                    if (not np.in1d(overlap, np.arange(j, jj)).any()) and whites + cv2.countNonZero(
+                            plate[:, jj]) < minwhite and cv2.countNonZero(plate[:,j:jj+1]) > 5:
+                        # update the minimum whites found
+                        minwhite = whites + cv2.countNonZero(plate[:, jj])
+                        # store pair
+                        box = (j, jj)
+        # update overlap
+        overlap = np.concatenate((overlap, np.arange(box[0], box[1] - 2)))
+        # store box
+        boxes.append(box)
+
+    # make sure all boxes are found, if not, replace boxes by simply dividing image by 6
+    for box in boxes:
+        if box[1]-box[0] < 2:
+            boxes = []
+            for i in range(1, 7):
+                boxes.append((int(i*(len(plate[0])/7.0)-(char_width/2.0)), int(i*(len(plate[0])/7.0)+(char_width/2.0))))
+            break
+
+    boxes.sort()
+    return boxes
 
 def seperate(image):
-    # plotImage(image)
     # convert to grayscale
     plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(plate, (7, 7), 0)
@@ -261,43 +272,22 @@ def seperate(image):
             else:
                 plate[i][j] = 0
 
-    # plotImage(plate)
-    # plotImage(threshInv)
+    # get horizontal character interval boundaries
+    boxes = get_horizontal_positions(plate)
 
-    # use epsilon, this is
-    epsilon = 0.07 * len(plate[0])
-
-    # after observing multiple plates, I saw that each character has a width of approximately 10% of the plate's width
-    char_width = 0.1 * len(plate[0])
-
-    boxes = []
-    overlap = np.array([])
-    while (len(boxes) < 6 and len(overlap) < len(plate[0]) - int(char_width)):
-        minwhite = 2 * len(plate)
-        box = (0, 0)
-        for j in range(int(len(plate[0]) - char_width - epsilon)):
-            if j not in overlap:
-                whites = cv2.countNonZero(plate[:, j])
-                for jj in range(int(j + char_width), int(j + char_width + epsilon)):
-                    if (not np.in1d(overlap, np.arange(j, jj)).any()) and whites + cv2.countNonZero(
-                            plate[:, jj]) < minwhite and cv2.countNonZero(plate[j:jj+1]) > 5:
-                        minwhite = whites + cv2.countNonZero(plate[:, jj])
-                        box = (j, jj)
-        overlap = np.concatenate((overlap, np.arange(box[0], box[1] + 1)))
-        boxes.append(box)
-
-    boxes.sort()
+    # get positions of the two so called 'dots' in a license plate
     gaps = []
     for i in range(len(boxes) - 1):
         gaps.append(boxes[i + 1][0] - boxes[i][1])
-
     gaps = np.argsort(np.array(gaps))
+
+    # two biggest gaps between characters
     dot1 = gaps[-1]
     dot2 = gaps[-2]
-
     gap1 = int((boxes[dot1][1] + boxes[dot1 + 1][0]) / 2)
     gap2 = int((boxes[dot2][1] + boxes[dot2 + 1][0]) / 2)
 
+    # increase the second dot by one to make it correspond to an index later in the pipeline
     if dot1 > dot2:
         dot1 += 2
         dot2 += 1
@@ -305,30 +295,12 @@ def seperate(image):
         dot2 += 2
         dot1 += 1
 
-    #     gaps.append(boxes[i + 1][0] - boxes[i][1])
-    # gaps.sort()
-    # gap1 = gaps[-1]
-    # gap2 = gaps[-2]
-
-    # i1 = 2
-    # i2 = 5
-    # dot1 = (0, 0)
-    # dot2 = (0, 0)
-    # for i in range(len(boxes) - 1):
-    #     gap = boxes[i + 1][0] - boxes[i][1]
-    #     if dot1 == (0, 0) and gap1 == gap:
-    #         i1 = i + 1
-    #         dot1 = (boxes[i + 1][0], boxes[i][1])
-    #     elif dot2 == (0, 0) and gap2 == gap:
-    #         i2 = i + 2
-    #         dot2 = (boxes[i + 1][0], boxes[i][1])
-
-    dot1index = gap1
-    dot2index = gap2
+    # find height of two dots
+    # first manually find contours from the matching white pixels of the centers of the two just found gaps
     black = True
     matches = []
     for i in range(len(plate)):
-        if plate[i][dot1index] == 255 and plate[i][dot2index] == 255:
+        if plate[i][gap1] == 255 and plate[i][gap2] == 255:
             if black:
                 matches.append([i])
                 black = False
@@ -337,119 +309,52 @@ def seperate(image):
                 matches[-1].append(i)
                 black = True
 
+    # now choose contour that is closests to the vertical center, and assign the middle of this contour, to finalindex
+    # we do this to find the vertical center of the plate's characters, since this is at the height of the two dots
     finalindex = int(len(plate) / 2)
-    if len(matches) > 0:
+    if len(matches) > 0:    
+        # make sure the last contour also has a second value
         if len(matches[-1]) == 1:
             matches[-1].append(len(plate))
+        # vertical center of plate
         center = float(len(plate) / 2)
+        # minimum distance to keep track of and compare with
         mindis = len(plate)
         for m in matches:
             if np.abs(center - (float((m[1] + m[0]) / 2.0))) < mindis:
+                # update minimum distance 
                 mindis = np.abs(center - (float((m[1] + m[0]) / 2.0)))
+                # update finalindex
                 finalindex = int((m[1] + m[0]) / 2)
 
+    # after observing multiple plates, we saw that each character has a height of approximately 17% of the plate's width
     heightchar = float(0.17 * len(plate[0]))
+    # if for some reason the finalindex is too high or too low for a character to fit, simply use the middle of the image's height
     if finalindex < float(heightchar / 2.0) or finalindex > len(plate) - float(heightchar / 2.0):
         finalindex = int(len(plate) / 2)
 
-    finalindex += int(0.02 * len(plate))
+
+    # finalindex += int(0.02 * len(plate))
+    # vertical boundaries
     ymin = finalindex - int(heightchar / 2)
     ymax = finalindex + int(heightchar / 2)
 
     characters = []
     for box in boxes:
         char = plate[ymin:ymax, box[0]:box[1]]
-        # eventueel dilate en erode om mooier te maken
-        # TODO check if necessary
+
+        # make sure no further errors will occur if character image is too small
+        if len(char) < 2 or len(char[0]) < 2:
+            return characters, dot1, dot2, False
+
+        # crop character to boundary box
         char = crop_to_boundingbox(char)
+
+        # again make sure no further error will occur if character image is too small
+        if cv2.countNonZero(char) < 2 or len(char) < 2 or len(char[0]) < 2:
+            return characters, dot1, dot2, False
+
         characters.append(char)
 
-    return characters, dot1, dot2
+    return characters, dot1, dot2, True
 
-    # for i in range(len(image)):
-    #     for j in range(len(image[0])):
-    #         if plate[i][j] == 255:
-    #             image[i][j] = [255,255,255]
-    #         else:
-    #             image[i][j] = [0,0,0]
-
-    # image[:,dot1index] = [0,255,0]
-    # image[:,dot2index] = [0,255,0]
-    # plotImage(image, "")
-
-    # mark found positions green
-    # for box in boxes:
-    #     image[0:3,box[0]:box[1]+1] = [0,255,0]
-    # plotImage(image, "")
-
-    # for box in boxes:
-    #     char = plate[:,box[0]:box[1]]
-    #     contours, hierarchy = cv2.findContours(char,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
-    #     biggest = contours[0]
-    #     for c in contours:    
-    #         if len(c) > len(biggest):
-    #             biggest = c
-    #     pixels = np.zeros((len(char),len(char[0])))
-    #     imin = len(char)
-    #     imax = 0
-    #     jmin = len(char[0])
-    #     jmax = 0
-    #     for p in biggest:
-    #         pixels[p[0][1]][p[0][0]] = 255
-    #         if p[0][1] < imin:
-    #             imin = p[0][1]
-    #         if p[0][1] > imax:
-    #             imax = p[0][1]
-    #         if p[0][0] < jmin:
-    #             jmin = p[0][0]
-    #         if p[0][0] > jmax:
-    #             jmax = p[0][0]
-    #     plotImage(char[imin:imax,jmin:jmax], "")
-
-    # width = 0.9*len(plate[0])
-    # for i in range(1, 6):
-    #     minwhite = len(plate)
-    #     split = 0
-    #     mincolumn = int((i*width/6)-0.07*width)
-    #     maxcolumn = int((i*width/6)+0.07*width)
-    #     for j in range(mincolumn, maxcolumn):
-    #         column = plate[:,j]
-    #         whites = cv2.countNonZero(column)
-    #         if whites < minwhite:
-    #             minwhite = whites
-    #             split = j
-    #     image[:, split] = [0, 255, 0]
-    # plotImage(image, "")
-
-    # contours, hierarchy = cv2.findContours(canny,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
-    # for c in contours:    
-    #     pixels = np.zeros((len(image),len(image[0])))
-    #     for p in c:
-    #         pixels[p[0][1]][p[0][0]] = 255
-    #     plotImage(pixels, "")
-
-    # ret2,th2 = cv2.threshold(plate,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    # plotImage(th2, "thresh")
-
-    #
-    # biggest = contours[0]
-    # for c in contours:
-    #     if len(c) > len(biggest):
-    #         biggest = c
-    # imin = len(plate)
-    # imax = 0
-    # jmin = len(plate[0])
-    # jmax = 0
-    # pixels = np.zeros((len(plate),len(plate[0])))
-    # for p in c:
-    #     pixels[p[0][1]][p[0][0]] = 255
-    #     if p[0][1] < imin:
-    #         imin = p[0][1]
-    #     if p[0][1] > imax:
-    #         imax = p[0][1]
-    #     if p[0][0] < jmin:
-    #         jmin = p[0][0]
-    #     if p[0][0] > jmax:
-    #         jmax = p[0][0]
-    #     if imax - imin < 0.25*len(plate) or jmax - jmin < 0.025*len(plate[0]):
-    #         plate[imin:imax,jmin:jmax] = 0

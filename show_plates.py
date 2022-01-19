@@ -37,9 +37,9 @@ while cap.isOpened():
         if (count - 1) % 24 == 0:
             print(count)
 
-            indices, angles, boxes = get_all_contours_info(frame)
-            segment_and_recognize(frame, indices, angles, boxes, count)
-            # get_plate(frame)
+            # indices, angles, boxes = get_all_contours_info(frame)
+            # segment_and_recognize(frame, indices, angles, boxes, count)
+            segment_and_recognize(get_plate(frame), count)
 
             # Press Q on keyboard to  exit
             if cv2.waitKey(25) & 0xFF == ord('q'):

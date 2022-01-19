@@ -46,14 +46,23 @@ Hints:
 """
 
 
-def segment_and_recognize(image, sorted_indices, angles, boxes, frame):
+def segment_and_recognize(image, frame):
     # Call setup only once
     setup()
     # Main functionality
     plate_info = []
+    if len(image) < 2 or len(image[0]) < 2:
+        return
 
-    # Add plate characters in correct format
-    recognized = recognize(image, sorted_indices, angles, boxes)
+    binary = make_binary(image)
+    char_images, dot1, dot2 = seperate(binary)
+    recognized_chars = recognize(char_images, binary)
+    
+    recognized = []
+    for char in recognized_chars:
+        if len(recognized) == dot1 or len(recognized) == dot2:
+            recognized.append('-')
+        recognized.append(char)
     # print(recognized)
     # if len(recognized) < 8:
     #     # VINCENT IS DIT GOED????????????????????????????
@@ -77,28 +86,48 @@ def segment_and_recognize(image, sorted_indices, angles, boxes, frame):
     write(recognized_plates)
 
 
-def recognize(image, sorted_indices, angles, boxes):
-    recognized_chars = []
-    good = False
-    center = (int(len(image[0]) / 2), int(len(image) / 2))
-    for i in sorted_indices:
-        M = cv2.getRotationMatrix2D(center, angles[i], 1.0)
-        rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))
-        plate = rotated[boxes[i][0]:boxes[i][1], boxes[i][2]:boxes[i][3]]
-        if len(plate) < 2 or len(plate[0]) < 2:
-            continue
-        images, dot1, dot2, good = seperate(plate)
-        if good:
-            break
 
-    if not good:
-        return []
-    for image in images:
-        if len(recognized_chars) == dot1 or len(recognized_chars) == dot2:
-            recognized_chars.append('-')
-        character = give_label_two_scores(image)
-        if character != AMBIGUOUS_RESULT:
-            recognized_chars.append(character)
+def recognize(images, plate):
+    recognized_chars = []
+    char_height = int(float(0.17 * len(plate[0])))
+    best_score = float('inf')      
+    for i in range(int(len(plate) - char_height)-1):
+        chars = []
+        total_score = 0
+        for image in images:
+            cropped = image[i:i+char_height]
+            cropped = crop_to_boundingbox(cropped)
+            if len(cropped) < 2 or len(cropped[0]) < 2:
+                total_score = float('inf')
+                break
+            character, score = give_label_two_scores2(cropped)
+            total_score += score
+            chars.append(character)
+        if total_score < best_score:
+            best_score = total_score
+            recognized_chars = chars
+
+    # recognized_chars = []
+    # good = False
+    # center = (int(len(image[0]) / 2), int(len(image) / 2))
+    # for i in sorted_indices:
+    #     M = cv2.getRotationMatrix2D(center, angles[i], 1.0)
+    #     rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))
+    #     plate = rotated[boxes[i][0]:boxes[i][1], boxes[i][2]:boxes[i][3]]
+    #     if len(plate) < 2 or len(plate[0]) < 2:
+    #         continue
+    #     images, dot1, dot2, good = seperate(plate)
+    #     if good:
+    #         break
+
+    # if not good:
+    #     return []
+    # for image in images:
+    #     if len(recognized_chars) == dot1 or len(recognized_chars) == dot2:
+    #         recognized_chars.append('-')
+    #     character = give_label_two_scores(image)
+    #     if character != AMBIGUOUS_RESULT:
+    #         recognized_chars.append(character)
     return recognized_chars
 
 
@@ -128,32 +157,39 @@ def difference_score(test_image, reference_character):
     return np.count_nonzero(cv2.bitwise_xor(test_image, reference_character))
 
 
+def give_label_two_scores2(test_image):
+
+    # Erode to remove noise
+    test_image = cv2.erode(test_image, np.ones((2, 2)))
+
+    difference_scores = []
+    for key, value in reference_characters.items():
+        difference_scores.append(difference_score(test_image, value))
+
+    difference_scores = np.array(difference_scores)
+
+    A, B = np.partition(difference_scores, 1)[0:2]
+    result_char = 0
+
+    # Check if the ratio of the two scores is close to 1 (if so return AMBIGUOUS_RESULT)
+    for key, value in reference_characters.items():
+        if difference_score(test_image, value) == A:
+            # Debug which reference is closest to image
+            # plotImage(test_image)
+            # plotImage(value)
+            result_char = key
+
+    ratio = A / B
+    # print("ratio:", ratio)
+    if ratio > 1 - EPSILON and ratio < 1 + EPSILON:
+        ambiguous.append(A)
+    #     return AMBIGUOUS_RESULT
+
+    # Return a single character based on the lowest score
+    return result_char, A
+
 
 def give_label_two_scores(test_image):
-    # distance = {}
-    # _, descriptors_test = sift.detectAndCompute(test_image, None)
-    #
-    # # feature matching
-    # bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck=True)
-    #
-    # # match_array = []
-    # # for key, value in reference_characters.items():
-    # #     keypoints, descriptors = sift.detectAndCompute(value, None)
-    #
-    # arr = []
-    # for label, sift_descriptor in sift_database.items():
-    #     matches = bf.knnMatch(descriptors_test, sift_descriptor, k=2);
-    #     good = [[m] for m, n in matches if m.distance < 0.7*n.distance]
-    #     arr.append(good)
-    #
-    # print(arr)
-    # # for label, value in sift_database.items():
-    # #     distance[label] = np.linalg.norm(descriptors_test - value)
-    #
-    # # print(distance)
-    # # print('Min:',min(distance, key=distance.get))
-
-    # Get the difference score with each of the reference characters
 
     # Erode to remove noise
     test_image = cv2.erode(test_image, np.ones((2, 2)))
@@ -259,7 +295,7 @@ def get_horizontal_positions(plate):
 
     # make sure all boxes are found, if not, replace boxes by simply dividing image by 6
     for box in boxes:
-        if box[1]-box[0] < 2:
+        if box[1]-box[0] < 2 or len(boxes) < 6:
             boxes = []
             for i in range(1, 7):
                 boxes.append((int(i*(len(plate[0])/7.0)-(char_width/2.0)), int(i*(len(plate[0])/7.0)+(char_width/2.0))))
@@ -268,11 +304,9 @@ def get_horizontal_positions(plate):
     boxes.sort()
     return boxes
 
-def seperate(image):
+def make_binary(image):
     # convert to grayscale
     plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(plate, (7, 7), 0)
-    (T, threshInv) = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
 
     # use mean of all colors as threshold and convert to binary where characters are white and background black
     threshold = np.mean(plate)
@@ -282,7 +316,9 @@ def seperate(image):
                 plate[i][j] = 255
             else:
                 plate[i][j] = 0
+    return plate
 
+def seperate(plate):
     # get horizontal character interval boundaries
     boxes = get_horizontal_positions(plate)
 
@@ -295,8 +331,8 @@ def seperate(image):
     # two biggest gaps between characters
     dot1 = gaps[-1]
     dot2 = gaps[-2]
-    gap1 = int((boxes[dot1][1] + boxes[dot1 + 1][0]) / 2)
-    gap2 = int((boxes[dot2][1] + boxes[dot2 + 1][0]) / 2)
+    # gap1 = int((boxes[dot1][1] + boxes[dot1 + 1][0]) / 2)
+    # gap2 = int((boxes[dot2][1] + boxes[dot2 + 1][0]) / 2)
 
     # increase the second dot by one to make it correspond to an index later in the pipeline
     if dot1 > dot2:
@@ -306,66 +342,75 @@ def seperate(image):
         dot2 += 2
         dot1 += 1
 
-    # find height of two dots
-    # first manually find contours from the matching white pixels of the centers of the two just found gaps
-    black = True
-    matches = []
-    for i in range(len(plate)):
-        if plate[i][gap1] == 255 and plate[i][gap2] == 255:
-            if black:
-                matches.append([i])
-                black = False
-        else:
-            if not black:
-                matches[-1].append(i)
-                black = True
-
-    # now choose contour that is closests to the vertical center, and assign the middle of this contour, to finalindex
-    # we do this to find the vertical center of the plate's characters, since this is at the height of the two dots
-    finalindex = int(len(plate) / 2)
-    if len(matches) > 0:    
-        # make sure the last contour also has a second value
-        if len(matches[-1]) == 1:
-            matches[-1].append(len(plate))
-        # vertical center of plate
-        center = float(len(plate) / 2)
-        # minimum distance to keep track of and compare with
-        mindis = len(plate)
-        for m in matches:
-            if np.abs(center - (float((m[1] + m[0]) / 2.0))) < mindis:
-                # update minimum distance 
-                mindis = np.abs(center - (float((m[1] + m[0]) / 2.0)))
-                # update finalindex
-                finalindex = int((m[1] + m[0]) / 2)
-
-    # after observing multiple plates, we saw that each character has a height of approximately 17% of the plate's width
-    heightchar = float(0.17 * len(plate[0]))
-    # if for some reason the finalindex is too high or too low for a character to fit, simply use the middle of the image's height
-    if finalindex < float(heightchar / 2.0) or finalindex > len(plate) - float(heightchar / 2.0):
-        finalindex = int(len(plate) / 2)
-
-
-    finalindex += int(0.02 * len(plate))
-    # vertical boundaries
-    ymin = finalindex - int(heightchar / 2)
-    ymax = finalindex + int(heightchar / 2)
-
     characters = []
     for box in boxes:
-        char = plate[ymin:ymax, box[0]:box[1]]
-
-        # make sure no further errors will occur if character image is too small
-        if len(char) < 2 or len(char[0]) < 2:
-            return characters, dot1, dot2, False
-
-        # crop character to boundary box
-        char = crop_to_boundingbox(char)
-
-        # again make sure no further error will occur if character image is too small
-        if cv2.countNonZero(char) < 2 or len(char) < 2 or len(char[0]) < 2:
-            return characters, dot1, dot2, False
-
+        char = plate[:,box[0]:box[1]]
         characters.append(char)
+    return characters, dot1, dot2
 
-    return characters, dot1, dot2, True
+
+
+
+    # # find height of two dots
+    # # first manually find contours from the matching white pixels of the centers of the two just found gaps
+    # black = True
+    # matches = []
+    # for i in range(len(plate)):
+    #     if plate[i][gap1] == 255 and plate[i][gap2] == 255:
+    #         if black:
+    #             matches.append([i])
+    #             black = False
+    #     else:
+    #         if not black:
+    #             matches[-1].append(i)
+    #             black = True
+
+    # # now choose contour that is closests to the vertical center, and assign the middle of this contour, to finalindex
+    # # we do this to find the vertical center of the plate's characters, since this is at the height of the two dots
+    # finalindex = int(len(plate) / 2)
+    # if len(matches) > 0:    
+    #     # make sure the last contour also has a second value
+    #     if len(matches[-1]) == 1:
+    #         matches[-1].append(len(plate))
+    #     # vertical center of plate
+    #     center = float(len(plate) / 2)
+    #     # minimum distance to keep track of and compare with
+    #     mindis = len(plate)
+    #     for m in matches:
+    #         if np.abs(center - (float((m[1] + m[0]) / 2.0))) < mindis:
+    #             # update minimum distance 
+    #             mindis = np.abs(center - (float((m[1] + m[0]) / 2.0)))
+    #             # update finalindex
+    #             finalindex = int((m[1] + m[0]) / 2)
+
+    # # after observing multiple plates, we saw that each character has a height of approximately 17% of the plate's width
+    # heightchar = float(0.17 * len(plate[0]))
+    # # if for some reason the finalindex is too high or too low for a character to fit, simply use the middle of the image's height
+    # if finalindex < float(heightchar / 2.0) or finalindex > len(plate) - float(heightchar / 2.0):
+    #     finalindex = int(len(plate) / 2)
+
+
+    # finalindex += int(0.02 * len(plate))
+    # # vertical boundaries
+    # ymin = finalindex - int(heightchar / 2)
+    # ymax = finalindex + int(heightchar / 2)
+
+    # characters = []
+    # for box in boxes:
+    #     char = plate[ymin:ymax, box[0]:box[1]]
+
+    #     # make sure no further errors will occur if character image is too small
+    #     if len(char) < 2 or len(char[0]) < 2:
+    #         return characters, dot1, dot2, False
+
+    #     # crop character to boundary box
+    #     char = crop_to_boundingbox(char)
+
+    #     # again make sure no further error will occur if character image is too small
+    #     if cv2.countNonZero(char) < 2 or len(char) < 2 or len(char[0]) < 2:
+    #         return characters, dot1, dot2, False
+
+    #     characters.append(char)
+
+    # return characters, dot1, dot2, True
 

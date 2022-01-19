@@ -91,8 +91,8 @@ def find_plate(image):
     # choose the best contour
     for c in contours:
 
-        # skip the ones with less than 20 pixels
-        if len(c) < 40:
+        # skip the ones with less than 200 pixels
+        if len(c) < 200:
             differences.append(float('inf'))
             boxes.append((0,0,0,0))
             angles.append(0)
@@ -117,7 +117,7 @@ def find_plate(image):
         mini, maxi, minj, maxj = get_bounding_box(rotated)
         width = maxj - minj
         height = maxi - mini
-        if width < 2 or height < 2:
+        if width < 90 or height < 20:
             differences.append(float('inf'))
             boxes.append((0,0,0,0))
             angles.append(0)

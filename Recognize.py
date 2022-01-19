@@ -46,17 +46,18 @@ Hints:
 """
 
 
-def segment_and_recognize(plate_imgs, frame):
+def segment_and_recognize(image, sorted_indices, angles, boxes, frame):
     # Call setup only once
     setup()
     # Main functionality
     plate_info = []
 
     # Add plate characters in correct format
-    recognized = recognize(plate_imgs)
-    if len(recognized) < 8:
-        # VINCENT IS DIT GOED????????????????????????????
-        return
+    recognized = recognize(image, sorted_indices, angles, boxes)
+    # print(recognized)
+    # if len(recognized) < 8:
+    #     # VINCENT IS DIT GOED????????????????????????????
+    #     return
     plate = '\''
     for char in recognized:
         plate += char
@@ -76,9 +77,20 @@ def segment_and_recognize(plate_imgs, frame):
     write(recognized_plates)
 
 
-def recognize(plate_imgs):
+def recognize(image, sorted_indices, angles, boxes):
     recognized_chars = []
-    images, dot1, dot2, good = seperate(plate_imgs)
+
+    center = (int(len(image[0]) / 2), int(len(image) / 2))
+    for i in sorted_indices:
+        M = cv2.getRotationMatrix2D(center, angles[i], 1.0)
+        rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))
+        plate = rotated[boxes[i][0]:boxes[i][1], boxes[i][2]:boxes[i][3]]
+        if len(plate) < 2 or len(plate[0]) < 2:
+            continue
+        images, dot1, dot2, good = seperate(plate)
+        if good:
+            break
+
     if not good:
         return []
     for image in images:
@@ -87,7 +99,6 @@ def recognize(plate_imgs):
         character = give_label_two_scores(image)
         if character != AMBIGUOUS_RESULT:
             recognized_chars.append(character)
-    print("recognized:", recognized_chars)
     return recognized_chars
 
 
@@ -334,7 +345,7 @@ def seperate(image):
         finalindex = int(len(plate) / 2)
 
 
-    # finalindex += int(0.02 * len(plate))
+    finalindex += int(0.02 * len(plate))
     # vertical boundaries
     ymin = finalindex - int(heightchar / 2)
     ymax = finalindex + int(heightchar / 2)

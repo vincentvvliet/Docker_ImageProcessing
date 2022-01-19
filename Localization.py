@@ -18,8 +18,7 @@ Hints:
 	2. You may need to define two ways for localizing plates(yellow or other colors)
 """
 
-
-def plotImage(img, title, cmapType=None):
+def plotImage(img, title="", cmapType=None):
     # Display image
     if (cmapType):
         plt.imshow(img, cmap=cmapType, vmin=0, vmax=255)
@@ -60,45 +59,68 @@ def get_bounding_box(image):
                     maxj = j
     return mini, maxi, minj, maxj
 
-
-# TODO not being used
-def hoihoi(image):
+def get_all_contours_info(image):
+    # apply yellow mask
     mask = apply_yellow_mask(image)
 
+    # make grayscale
     gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
 
+    # get all contours
     contours, hierarchy = cv2.findContours(gray, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-    con = contours[0]
-    for c in contours:
-        if len(c) > len(con):
-            con = c
-    contour = np.zeros((len(image), len(image[0])))
-    for pixel in con:
-        i = pixel[0][1]
-        j = pixel[0][0]
-        contour[i][j] = 255
-    arr = cv2.minAreaRect(con)
-    angle = arr[-1]
-    if angle < -45:
-        angle = angle + 90
+
+    differences = []
+    boxes = []
+    angles = []
+    count = 0
+    # some variables for further use
     center = (int(len(image[0]) / 2), int(len(image) / 2))
-    M = cv2.getRotationMatrix2D(center, angle, 1.0)
-    rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))
-    # plotImage(rotated, str(angle))
+    ratio = float(47 / 11)
 
+    # choose the best contour
+    for c in contours:
 
-# def choose_best_angle(image):
-#     rec = np.zeros((100,100))
-#     rec[44,26:75] = 255
-#     rec[56,26:75] = 255
-#     rec[44:57,26] = 255
-#     rec[44:57,75] = 255
-#     for angle in range(0, 360):
-#         M = cv2.getRotationMatrix2D((50,50), angle, 1.0)
-#         rotated = cv2.warpAffine(rec, M, (100,100))
-#         rotated = crop_to_bounding_box(rotated)
-#         if len(rotated) > len(image):
-#             rotated = cv2.resize(rotated, ())
+        # skip the ones with less than 20 pixels
+        if len(c) < 40:
+            differences.append(float('inf'))
+            boxes.append((0,0,0,0))
+            angles.append(0)
+            continue
+
+        # store the pixels of current contour
+        pixels = np.zeros((len(image), len(image[0])))
+        for pixel in c:
+            i = pixel[0][1]
+            j = pixel[0][0]
+            pixels[i][j] = 255
+
+        # get the orientation angle and rotate the contour
+        arr = cv2.minAreaRect(c)
+        angle = arr[-1]
+        if angle < -45:
+            angle = angle + 90
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        rotated = cv2.warpAffine(pixels, M, (len(image[0]), len(image)))
+
+        # get boundary box of this rotated version and calculate the height/width ratio
+        mini, maxi, minj, maxj = get_bounding_box(rotated)
+        width = maxj - minj
+        height = maxi - mini
+        if width < 2 or height < 2:
+            differences.append(float('inf'))
+            boxes.append((0,0,0,0))
+            angles.append(0)
+            continue
+
+        diff = float(np.abs(float(ratio - float(width / height))))
+        differences.append(diff)
+        boxes.append((mini, maxi, minj, maxj))
+        angles.append(angle)
+        count += 1
+
+    differences = np.argsort(np.array(differences))[0:4]
+    return differences[0:count], angles, boxes
+
 
 def get_plate(image):
     # apply yellow mask
@@ -121,7 +143,7 @@ def get_plate(image):
     for c in contours:
 
         # skip the ones with less than 20 pixels
-        if len(c) < 20:
+        if len(c) < 40:
             continue
 
         # store the pixels of current contour
@@ -145,6 +167,7 @@ def get_plate(image):
         height = maxi - mini
         if width < 2 or height < 2:
             continue
+
         diff = float(np.abs(float(ratio - float(width / height))))
         if diff < difference:
             difference = diff
@@ -159,13 +182,7 @@ def get_plate(image):
     crop = rotated[finalbox[0]:finalbox[1], finalbox[2]:finalbox[3]]
     return crop
 
-    # rotated[finalbox[0],finalbox[2]:finalbox[3]+1] = [0, 255, 0]
-    # rotated[finalbox[1],finalbox[2]:finalbox[3]+1] = [0, 255, 0]
-    # rotated[finalbox[0]:finalbox[1]+1,finalbox[2]] = [0, 255, 0]
-    # rotated[finalbox[0]:finalbox[1]+1,finalbox[3]] = [0, 255, 0]
-    # return rotated
-    # fourier = np.fft.fftshift(np.fft.fft2(crop))
-    # theta = np.argmax(get_orientation_distribution(fourier))
+
 
 
 def get_boundary_boxes(image):

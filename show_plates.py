@@ -3,6 +3,7 @@ import argparse
 import cv2
 
 from Localization import get_plate
+from Localization import get_all_contours_info
 from Recognize import segment_and_recognize
 
 # Plates where localization fails
@@ -33,18 +34,12 @@ while cap.isOpened():
     ret, frame = cap.read()
     if ret == True:
         # Frame skipping s.t. Category IV is skipped and frames are not on boundary of interval in evaluator
-        if (count - 1) % 24 == 0 and count < 1730 and count > 0:
+        if (count - 1) % 24 == 0 and count < 1730:
             print(count)
-            # a = bramsgelul(frame)
-            # if a!=999:
-            #     center = (int(len(frame[0])/2),int(len(frame)/2))
-            #     M = cv2.getRotationMatrix2D(center, a, 1.0)
-            #     rotated = cv2.warpAffine(frame, M, (len(frame[0]), len(frame)))
-            # DEBUG functions
-            # detections = draw_all_boxes(frame) # STEP 1
-            # detections = draw_green_box(frame) # STEP 2
-            # detections = plate_detection(frame) # STEP 3
-            segment_and_recognize(get_plate(frame), count)
+
+            indices, angles, boxes = get_all_contours_info(frame)
+            segment_and_recognize(frame, indices, angles, boxes, count)
+            # get_plate(frame)
 
             # Press Q on keyboard to  exit
             if cv2.waitKey(25) & 0xFF == ord('q'):

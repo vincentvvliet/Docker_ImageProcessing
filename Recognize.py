@@ -14,6 +14,8 @@ character_array = ['B', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', '
 reference_characters = {}
 path = "TrainingSet/Categorie I/"
 recognized_plates = []
+sift_database = {}
+sift = cv2.SIFT_create()
 
 
 def plotImage(img, title=""):
@@ -64,7 +66,7 @@ def try_other_contours():
             # make sure no errors occur
             if cv2.countNonZero(binary) != 0:
                 # get recognized characters
-                char_images, dot1, dot2 = seperate(binary)
+                char_images, dot1, dot2 = separate(binary)
                 recognized_chars = recognize(char_images, binary)
 
     return recognized_chars, dot1, dot2
@@ -91,7 +93,7 @@ def segment_and_recognize(image, found, frame):
         # make sure no errors occur
         if cv2.countNonZero(binary) != 0:
             # seperate characters from image
-            char_images, dot1, dot2 = seperate(binary)
+            char_images, dot1, dot2 = separate(binary)
             # recognize character images
             recognized_chars = recognize(char_images, binary)
 
@@ -106,10 +108,10 @@ def segment_and_recognize(image, found, frame):
         if len(recognized) == dot1 or len(recognized) == dot2:
             recognized.append('-')
         recognized.append(char)
-    plate = '\''
+
+    plate = ''
     for char in recognized:
         plate += char
-    plate += '\''
 
     # Append the reconised characters, frame no. and time (rounded down)
     plate_info.append(plate)
@@ -179,20 +181,15 @@ def difference_score(test_image, reference_character):
 def get_gradient(image):
     # Sobel gradient in x and y direction
     Sobel_kernel_y = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
-    #TODO fill in the correct values for the Sobel gradient in Y direction
     Sobel_kernel_x = np.array([[1,0,-1],[2,0,-2],[1,0,-1]])
-    #TODO fill in the correct values for the Sobel gradient in X direction
-    image2 = np.float64(image)
-    image3 = np.float64(image)
-    I_x = cv2.filter2D(image2, -1, Sobel_kernel_x)
-    I_y = cv2.filter2D(image3, -1, Sobel_kernel_y)
+    I_x = cv2.filter2D(np.float64(image), -1, Sobel_kernel_x)
+    I_y = cv2.filter2D(np.float64(image), -1, Sobel_kernel_y)
     # Gradient magnitude
-    #TODO compute the "g" gradient magnitude function.
-    g = np.sqrt(I_x*I_x+I_y*I_y)
+    gradient = np.hypot(I_x,I_y)
     # Gradient orientation
     I_x[I_x == 0] = 0.0001
     theta = np.arctan(I_y/I_x)
-    return g, theta
+    return gradient, theta
 
 # sift descriptor used in the lab
 def sift_descriptor(image):
@@ -230,7 +227,7 @@ def give_label_two_scores(test_image):
     result_char_1 = list(reference_characters)[sorted_indices[0]]
     result_char_2 = list(reference_characters)[sorted_indices[1]]
 
-    # if ambigues, choose one with best score using sift descriptor
+    # if ambiguous, choose one with best score using sift descriptor
     if B == 0 or (A/B > 1 - EPSILON and A/B < 1 + EPSILON):
         our_sift = sift_descriptor(test_image)
         sift_1 = sift_descriptor(reference_characters[result_char_1])
@@ -245,7 +242,7 @@ def give_label_two_scores(test_image):
 
 def write(plates):
     # open the file in the write mode
-    with open('sampleOutput.csv', 'w') as f:
+    with open('Output.csv', 'w') as f:
         # create the csv writer
         writer = csv.writer(f)
 
@@ -255,7 +252,6 @@ def write(plates):
 
         # write a row to the csv file
         writer.writerows(plates)
-
 
 def crop_to_boundingbox(image):
     if len(image) < 2 or len(image[0]) < 2:
@@ -342,7 +338,7 @@ def make_binary(image):
     return plate
 
 
-def seperate(plate):
+def separate(plate):
     # get horizontal character interval boundaries
     boxes = get_horizontal_positions(plate)
 

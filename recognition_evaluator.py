@@ -1,6 +1,6 @@
 import pandas as pd
 
-student_results = pd.read_csv('sampleOutput.csv')
+student_results = pd.read_csv('Output.csv')
 ground_truth = pd.read_csv('groundTruth.csv')
 
 counter = 0

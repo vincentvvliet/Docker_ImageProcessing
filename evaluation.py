@@ -1,7 +1,7 @@
 import pandas as pd
 import argparse
 import numpy as np
-# ground turth header: 'License plate', 'Timestamp', 'First frame', 'Last frame', 'Category'
+# ground truth header: 'License plate', 'Timestamp', 'First frame', 'Last frame', 'Category'
 def get_args():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--file_path', type=str, default=None)
@@ -45,7 +45,7 @@ if __name__ == '__main__':
 			print("student:",licensePlate)
 			print("solution:",solutionPlate)
 			if licensePlate == solutionPlate:
-				print(solutionPlate)
+				print("correct")
 				if timeStamp <= solutionTimeStamp + 2:
 					result[index, 0] += 1
 				else:

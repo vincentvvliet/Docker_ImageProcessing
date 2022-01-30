@@ -3,6 +3,7 @@ import csv
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+
 from Localization import get_plate
 
 AMBIGUOUS_RESULT = "AMBIGUOUS"

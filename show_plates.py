@@ -2,7 +2,6 @@ import argparse
 
 import cv2
 
-from Localization import get_plate
 from Localization import find_plate
 from Recognize import segment_and_recognize
 

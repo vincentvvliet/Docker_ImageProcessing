@@ -45,6 +45,7 @@ Hints:
 	You may need to define other functions.
 """
 
+
 # call this method when we think the image is not of a license plate
 def try_other_contours():
     count = 0
@@ -52,7 +53,8 @@ def try_other_contours():
     dot1 = 2
     dot2 = 5
     # loop through the other contours we found until we detect 6 characters and the dots are at a valid position
-    while(len(recognized_chars) != 6 or dot1 == 0 or dot2 == 0 or dot1 == 7 or dot2 == 7 or abs(dot1-dot2) < 2 or abs(dot1-dot2) > 4 or (dot1 > 3 and dot2 > 3) or (dot1 < 4 and dot2 < 4)):
+    while (len(recognized_chars) != 6 or dot1 == 0 or dot2 == 0 or dot1 == 7 or dot2 == 7 or abs(
+            dot1 - dot2) < 2 or abs(dot1 - dot2) > 4 or (dot1 > 3 and dot2 > 3) or (dot1 < 4 and dot2 < 4)):
         count += 1
         # get image belonging to contour at index 'count'
         image, found = get_plate(count)
@@ -62,7 +64,7 @@ def try_other_contours():
         # make sure no errors occur
         if len(image) > 1 and len(image[0]) > 1:
             # get binary
-            binary = make_binary(image)
+            binary = apply_thresholding(image)
             # make sure no errors occur
             if cv2.countNonZero(binary) != 0:
                 # get recognized characters
@@ -89,7 +91,7 @@ def segment_and_recognize(image, found, frame):
     # make sure no errors occur
     if len(image) > 1 and len(image[0]) > 1:
         # get binary
-        binary = make_binary(image)
+        binary = apply_thresholding(image)
         # make sure no errors occur
         if cv2.countNonZero(binary) != 0:
             # seperate characters from image
@@ -99,7 +101,8 @@ def segment_and_recognize(image, found, frame):
 
     # when the dots are at invalid postions found, or either the amount of characters found is not 6, 
     # we assume it was no licence plate, so we try other contours
-    if len(recognized_chars) != 6 or dot1 == 0 or dot2 == 0 or dot1 == 7 or dot2 == 7 or abs(dot1-dot2) < 2 or abs(dot1-dot2) > 4 or (dot1 > 3 and dot2 > 3) or (dot1 < 4 and dot2 < 4):
+    if len(recognized_chars) != 6 or dot1 == 0 or dot2 == 0 or dot1 == 7 or dot2 == 7 or abs(dot1 - dot2) < 2 or abs(
+            dot1 - dot2) > 4 or (dot1 > 3 and dot2 > 3) or (dot1 < 4 and dot2 < 4):
         recognized_chars, dot1, dot2 = try_other_contours()
 
     # add dots ('-') at correct positions
@@ -122,7 +125,8 @@ def segment_and_recognize(image, found, frame):
     recognized_plates.append(plate_info)
 
     # Only write at the end
-    write(recognized_plates)
+    if frame > 2000:
+        write(recognized_plates)
 
 
 def recognize(images, plate):
@@ -171,35 +175,38 @@ def setup():
     for char, value in reference_characters.items():
         reference_characters[char] = crop_to_boundingbox(value)
 
+
 def difference_score(test_image, reference_character):
     reference_character = cv2.resize(reference_character, (len(test_image[0]), len(test_image)))
     # return the number of non-zero pixels
 
     return np.count_nonzero(cv2.bitwise_xor(test_image, reference_character))
 
+
 # get gradient method used in the lab
 def get_gradient(image):
     # Sobel gradient in x and y direction
-    Sobel_kernel_y = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
-    Sobel_kernel_x = np.array([[1,0,-1],[2,0,-2],[1,0,-1]])
+    Sobel_kernel_y = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
+    Sobel_kernel_x = np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
     I_x = cv2.filter2D(np.float64(image), -1, Sobel_kernel_x)
     I_y = cv2.filter2D(np.float64(image), -1, Sobel_kernel_y)
     # Gradient magnitude
-    gradient = np.hypot(I_x,I_y)
+    gradient = np.hypot(I_x, I_y)
     # Gradient orientation
     I_x[I_x == 0] = 0.0001
-    theta = np.arctan(I_y/I_x)
+    theta = np.arctan(I_y / I_x)
     return gradient, theta
+
 
 # sift descriptor used in the lab
 def sift_descriptor(image):
-    image = cv2.resize(image, (16,16))
+    image = cv2.resize(image, (16, 16))
     result = []
     # Take only 16x16 window of the picture from the center
     boundaries = [0, 4, 8, 12]
     for i in boundaries:
         for j in boundaries:
-            subwindow = image[i:i+4,j:j+4]
+            subwindow = image[i:i + 4, j:j + 4]
             mag, ang = get_gradient(subwindow)
             hist, bin_edges = np.histogram(ang, bins=8, weights=mag)
             for value in hist:
@@ -207,6 +214,7 @@ def sift_descriptor(image):
     result = np.array(result)
     result /= np.linalg.norm(result)
     return result
+
 
 def give_label_two_scores(test_image):
     # Erode to remove noise
@@ -228,7 +236,7 @@ def give_label_two_scores(test_image):
     result_char_2 = list(reference_characters)[sorted_indices[1]]
 
     # if ambiguous, choose one with best score using sift descriptor
-    if B == 0 or (A/B > 1 - EPSILON and A/B < 1 + EPSILON):
+    if B == 0 or (A / B > 1 - EPSILON and A / B < 1 + EPSILON):
         our_sift = sift_descriptor(test_image)
         sift_1 = sift_descriptor(reference_characters[result_char_1])
         sift_2 = sift_descriptor(reference_characters[result_char_2])
@@ -252,6 +260,7 @@ def write(plates):
 
         # write a row to the csv file
         writer.writerows(plates)
+
 
 def crop_to_boundingbox(image):
     if len(image) < 2 or len(image[0]) < 2:
@@ -309,7 +318,6 @@ def get_horizontal_positions(plate):
         # store box
         boxes.append(box)
 
-
     # make sure all boxes are found, if not, replace boxes by simply dividing image by 6
     for box in boxes:
         if box[1] - box[0] < 2 or len(boxes) < 6:
@@ -323,19 +331,15 @@ def get_horizontal_positions(plate):
     return boxes
 
 
-def make_binary(image):
+def apply_thresholding(image):
     # convert to grayscale
     plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # use mean of all colors as threshold and convert to binary where characters are white and background black
-    threshold = np.mean(plate)
-    for i in range(len(plate)):
-        for j in range(len(plate[0])):
-            if plate[i][j] < threshold:
-                plate[i][j] = 255
-            else:
-                plate[i][j] = 0
-    return plate
+    # Make use of Otsu Thresholding to make plate binary image
+    ret, thresh = cv2.threshold(plate, 120, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # Ensure that characters are white and background is black
+    return 255 - thresh
 
 
 def separate(plate):
@@ -366,5 +370,3 @@ def separate(plate):
         char = plate[:, box[0]:box[1]]
         characters.append(char)
     return characters, dot1, dot2
-
-

@@ -98,13 +98,14 @@ def segment_and_recognize(image, found, frame):
             # seperate characters from image
             char_images, dot1, dot2 = separate(binary)
             # recognize character images
-            recognized_chars = recognize(char_images, binary)
+            recognized_chars = get_recognized_chars(char_images, binary, dot1, dot2)
 
     # when the dots are at invalid postions found, or either the amount of characters found is not 6, 
     # we assume it was no licence plate, so we try other contours
     if len(recognized_chars) != 6 or dot1 == 0 or dot2 == 0 or dot1 == 7 or dot2 == 7 or abs(dot1 - dot2) < 2 or abs(
             dot1 - dot2) > 4 or (dot1 > 3 and dot2 > 3) or (dot1 < 4 and dot2 < 4):
-        recognized_chars, dot1, dot2 = try_other_contours()
+        return
+        # recognized_chars, dot1, dot2 = try_other_contours()
 
     # add dots ('-') at correct positions
     recognized = []
@@ -130,28 +131,50 @@ def segment_and_recognize(image, found, frame):
         write(recognized_plates)
 
 
-def recognize(images, plate):
-    recognized_chars = []
+def get_recognized_chars(images, plate, dot1, dot2):
+    recognized_chars = []            
+
     # we assumed each character has a height of approximately 17% of the plates width
     char_height = int(float(0.17 * len(plate[0])))
     best_score = float('inf')
     # try for all heights and choose the one where all the characters combined have the best diff_score
     for i in range(int(len(plate) - char_height) - 1):
+        
         chars = []
         total_score = 0
-        for image in images:
-            # crop image to certain height
-            cropped = image[i:i + char_height]
-            # crop image to bounding box
-            cropped = crop_to_boundingbox(cropped)
-            # make sure no errors occur
-            if len(cropped) < 2 or len(cropped[0]) < 2:
-                total_score = float('inf')
-                break
-            # get the character with the best score
-            character, score = give_label_two_scores(cropped)
-            total_score += score
-            chars.append(character)
+        split_points = [0, dot1, dot2-1, len(images)]
+
+        for j in range(0, 3):
+            numbers = []
+            letters = []
+            num_score = 0
+            let_score = 0
+            for jj in range(len(images)):
+                if jj >= split_points[j] and jj < split_points[j+1]:
+                    image = images[jj]
+                    # crop image to certain height
+                    cropped = image[i:i + char_height]
+                    # crop image to bounding box
+                    cropped = crop_to_boundingbox(cropped)
+                    # make sure no errors occur
+                    if len(cropped) < 2 or len(cropped[0]) < 2:
+                        total_score = float('inf')
+                        break
+
+                    # get the character with the best score
+                    number, score1 = give_label_two_scores(cropped, True)
+                    letter, score2 = give_label_two_scores(cropped, False)
+                    numbers.append(number) 
+                    num_score += score1
+                    letters.append(letter)
+                    let_score += score2
+            if num_score < let_score:
+                total_score += num_score
+                chars += numbers
+            else:
+                total_score += let_score
+                chars += letters
+
         # check if best score and update variables if needed
         if total_score < best_score:
             best_score = total_score
@@ -217,14 +240,17 @@ def sift_descriptor(image):
     return result
 
 
-def give_label_two_scores(test_image):
+def give_label_two_scores(test_image, is_digit):
     # Erode to remove noise
     test_image = cv2.erode(test_image, np.ones((2, 2)))
 
     # get all difference scores
     difference_scores = []
     for key, value in reference_characters.items():
-        difference_scores.append(difference_score(test_image, value))
+        if key.isdigit() == is_digit:
+            difference_scores.append(difference_score(test_image, value))
+        else:
+            difference_scores.append(float('inf'))
 
     # get two lowest scores
     difference_scores = np.array(difference_scores)
@@ -359,11 +385,11 @@ def separate(plate):
 
     # increase the second dot by one to make it correspond to an index later in the pipeline
     if dot1 > dot2:
-        dot1 += 2
-        dot2 += 1
-    else:
-        dot2 += 2
-        dot1 += 1
+        temp = dot1
+        dot1 = dot2
+        dot2 = temp
+    dot1 += 1
+    dot2 += 2
 
     # return all characters
     characters = []

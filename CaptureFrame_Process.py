@@ -19,6 +19,7 @@ Inputs:(three)
 	3. save_path: final .csv file path
 Output: None
 """
+INVALID = [601, 769, 913, 985, 1129, 1177, 1225, 1321, 1369, 1417, 1441, 1465, 1513, 1561, 1609]
 
 
 def CaptureFrame_Process(file_path, sample_frequency, save_path):

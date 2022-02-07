@@ -2,9 +2,16 @@ import cv2
 import os
 import pandas as pd
 import csv
+import matplotlib.pyplot as plt
+
 from Localization import find_plate
+from Localization import apply_yellow_mask
+from Localization import get_bounding_box
 from Recognize import segment_and_recognize
 from Recognize import recognized_plates
+from Recognize import scores
+from Recognize import sift_descriptor
+from Recognize import apply_isodata_thresholding
 
 """
 In this file, you will define your own CaptureFrame_Process funtion. In this function,
@@ -20,7 +27,14 @@ Inputs:(three)
 Output: None
 """
 INVALID = [601, 769, 913, 985, 1129, 1177, 1225, 1321, 1369, 1417, 1441, 1465, 1513, 1561, 1609]
+same_car = []
+plates_found = []
 
+def plotImage(img, title=""):
+    # Display image
+    plt.imshow(img, cmap=plt.cm.gray, vmin=0, vmax=255)
+    plt.title(title)
+    plt.show()
 
 def CaptureFrame_Process(file_path, sample_frequency, save_path):
     # Create a VideoCapture object and read from input file
@@ -33,18 +47,61 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
     count = -1
     # Read until video is completed
     while cap.isOpened():
+
         count += 1
+        sift = cv2.xfeatures2d.SIFT_create()
+        index_params = dict(algorithm=0, trees=5)
+        search_params = dict()
+        flann = cv2.FlannBasedMatcher(index_params, search_params)
 
         # Capture frame-by-frame
         ret, frame = cap.read()
         if ret == True:
             # Frame skipping s.t. Category IV is skipped and frames are not on boundary of interval in evaluator
-            if (count - 1) % 24 == 0:
-                print(count)
-
-                # indices, angles, boxes = get_all_contours_info(frame)
+            if (count - 1) % 1 == 0 and count >= 1000:
                 plate, found = find_plate(frame)
-                segment_and_recognize(plate, found, count)
+                if not found:
+                    continue
+
+                # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                _, desc = sift.detectAndCompute(plate, None)
+                if len(same_car) == 0:
+                    same_car.append([desc, 300])
+                else:
+                    matches = flann.knnMatch(same_car[-1][0], desc, k=2)
+                    ratio = 0.3
+                    match = 0
+                    for m, n in matches:
+                        if m.distance < ratio*n.distance:
+                            match += 1
+                    if match < same_car[-1][1]/2.0:
+                        print(count)      
+                    same_car.append([desc, match])
+
+
+                
+
+                # plate, found = find_plate(frame)
+                # segment_and_recognize(plate, found, count)
+
+                # if len(recognized_plates) > 1:
+                #     current_string = recognized_plates[-1][0]
+                #     prev_string = recognized_plates[-2][0]
+                #     diff = 0
+                #     index = 0
+                #     for i in range(8):
+                #         if current_string[i] != prev_string[i]:
+                #             diff += 1
+                #             index = i
+                #     if diff == 1:
+                #         if sum(scores[-1]) < sum(scores[-2]):
+                #             recognized_plates[-2][0] = current_string
+                #         else:
+                #             recognized_plates[-1][0] = prev_string
+                #             scores[-1][index] = scores[-2][index]
+
+
+                # write(recognized_plates, save_path)
 
                 # Press Q on keyboard to  exit
                 if cv2.waitKey(25) & 0xFF == ord('q'):
@@ -61,7 +118,7 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
     cv2.destroyAllWindows()
 
     # Write to file
-    write(recognized_plates, save_path)
+    # write(recognized_plates, save_path)
 
 def write(plates, save_path):
     # open the file in the write mode

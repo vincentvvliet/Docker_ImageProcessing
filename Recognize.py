@@ -15,9 +15,9 @@ character_array = ['B', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', '
 reference_characters = {}
 path = "TrainingSet/Categorie I/"
 recognized_plates = []
+scores = []
 sift_database = {}
 sift = cv2.SIFT_create()
-
 
 def plotImage(img, title=""):
     # Display image
@@ -48,31 +48,32 @@ Hints:
 
 
 # call this method when we think the image is not of a license plate
-def try_other_contours():
-    count = 0
-    recognized_chars = []
-    dot1 = 2
-    dot2 = 5
-    # loop through the other contours we found until we detect 6 characters and the dots are at a valid position
-    while (len(recognized_chars) != 6 or dot1 == 0 or dot2 == 0 or dot1 == 7 or dot2 == 7 or abs(
-            dot1 - dot2) < 2 or abs(dot1 - dot2) > 4 or (dot1 > 3 and dot2 > 3) or (dot1 < 4 and dot2 < 4)):
-        count += 1
-        # get image belonging to contour at index 'count'
-        image, found = get_plate(count)
-        # stop searching when no contour left
-        if not found:
-            break
-        # make sure no errors occur
-        if len(image) > 1 and len(image[0]) > 1:
-            # get binary
-            binary = apply_thresholding(image)
-            # make sure no errors occur
-            if cv2.countNonZero(binary) != 0:
-                # get recognized characters
-                char_images, dot1, dot2 = separate(binary)
-                recognized_chars = recognize(char_images, binary)
+# def try_other_contours():
+#     count = 0
+#     recognized_chars = []
+#     dot1 = 2
+#     dot2 = 5
+#     # loop through the other contours we found until we detect 6 characters and the dots are at a valid position
+#     while (len(recognized_chars) != 6 or dot1 == 0 or dot2 == 0 or dot1 == 7 or dot2 == 7 or abs(
+#             dot1 - dot2) < 2 or abs(dot1 - dot2) > 4 or (dot1 > 3 and dot2 > 3) or (dot1 < 4 and dot2 < 4)):
+#         count += 1
+#         # get image belonging to contour at index 'count'
+#         image, found = get_plate(count)
+#         # stop searching when no contour left
+#         if not found:
+#             break
+#         # make sure no errors occur
+#         if len(image) > 1 and len(image[0]) > 1:
+#             # get binary
+#             binary = apply_thresholding(image)
+#             plotImage(binary)
+#             # make sure no errors occur
+#             if cv2.countNonZero(binary) != 0:
+#                 # get recognized characters
+#                 char_images, dot1, dot2 = separate(binary)
+#                 recognized_chars = recognize(char_images, binary)
 
-    return recognized_chars, dot1, dot2
+#     return recognized_chars, dot1, dot2
 
 
 def segment_and_recognize(image, found, frame):
@@ -83,7 +84,6 @@ def segment_and_recognize(image, found, frame):
     # return immediately when nothing was not found in localization
     if not found:
         return
-
     # default dot positions
     dot1 = 2
     dot2 = 5
@@ -91,14 +91,19 @@ def segment_and_recognize(image, found, frame):
     recognized_chars = []
     # make sure no errors occur
     if len(image) > 1 and len(image[0]) > 1:
+        # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
+        # image = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
+        # kernel = cv2.getGaussianKernel(10, 3)
+        # image = cv2.filter2D(image, -1, kernel)
         # get binary
         binary = apply_thresholding(image)
+        binary = remove_rows(binary)
         # make sure no errors occur
         if cv2.countNonZero(binary) != 0:
             # seperate characters from image
             char_images, dot1, dot2 = separate(binary)
             # recognize character images
-            recognized_chars = get_recognized_chars(char_images, binary, dot1, dot2)
+            recognized_chars, score = get_recognized_chars(char_images, binary, dot1, dot2)
 
     # when the dots are at invalid postions found, or either the amount of characters found is not 6, 
     # we assume it was no licence plate, so we try other contours
@@ -109,10 +114,16 @@ def segment_and_recognize(image, found, frame):
 
     # add dots ('-') at correct positions
     recognized = []
-    for char in recognized_chars:
+    scores_final = []
+    for i in range(6):
         if len(recognized) == dot1 or len(recognized) == dot2:
             recognized.append('-')
-        recognized.append(char)
+            scores_final.append(0)
+        recognized.append(recognized_chars[i])
+        scores_final.append(score[i])
+
+    if recognized.count('-') != 2:
+        return
 
     plate = ''
     for char in recognized:
@@ -125,6 +136,7 @@ def segment_and_recognize(image, found, frame):
 
     # Add to list of known plates
     recognized_plates.append(plate_info)
+    scores.append(scores_final)
 
     # Only write at the end
     if frame > 2000:
@@ -132,55 +144,66 @@ def segment_and_recognize(image, found, frame):
 
 
 def get_recognized_chars(images, plate, dot1, dot2):
-    recognized_chars = []            
+    recognized_chars = []      
+    testbram = []
+    score_per_char = [float('inf')]
 
     # we assumed each character has a height of approximately 17% of the plates width
     char_height = int(float(0.17 * len(plate[0])))
-    best_score = float('inf')
-    # try for all heights and choose the one where all the characters combined have the best diff_score
-    for i in range(int(len(plate) - char_height) - 1):
-        
-        chars = []
-        total_score = 0
-        split_points = [0, dot1, dot2-1, len(images)]
+    end_loop = int(len(plate) - char_height) - 1
+    if len(plate) <= char_height + 2:
+        end_loop = 1
+        char_height = len(plate)
 
+    # try for all heights and choose the one where all the characters combined have the best diff_score
+    for i in range(end_loop):
+        testbram1 = []
+        chars = []
+        final_scores = []
+        split_points = [0, dot1, dot2-1, len(images)]
         for j in range(0, 3):
             numbers = []
             letters = []
-            num_score = 0
-            let_score = 0
+            num_scores = []
+            let_scores = []
             for jj in range(len(images)):
                 if jj >= split_points[j] and jj < split_points[j+1]:
                     image = images[jj]
                     # crop image to certain height
                     cropped = image[i:i + char_height]
+                    cropped = cv2.erode(cropped, np.ones((3,3)))
+                    cropped = cv2.dilate(cropped, np.ones((3,3)))
                     # crop image to bounding box
                     cropped = crop_to_boundingbox(cropped)
+                    testbram1.append(cropped)
                     # make sure no errors occur
                     if len(cropped) < 2 or len(cropped[0]) < 2:
-                        total_score = float('inf')
+                        final_scores = [float('inf')]
                         break
 
                     # get the character with the best score
                     number, score1 = give_label_two_scores(cropped, True)
                     letter, score2 = give_label_two_scores(cropped, False)
                     numbers.append(number) 
-                    num_score += score1
+                    num_scores.append(score1)
                     letters.append(letter)
-                    let_score += score2
-            if num_score < let_score:
-                total_score += num_score
+                    let_scores.append(score2)
+            if sum(num_scores) < sum(let_scores):
+                final_scores += num_scores
                 chars += numbers
             else:
-                total_score += let_score
+                final_scores += let_scores
                 chars += letters
 
         # check if best score and update variables if needed
-        if total_score < best_score:
-            best_score = total_score
+        if sum(final_scores) < sum(score_per_char):
             recognized_chars = chars
+            score_per_char = final_scores
+            testbram = testbram1
     # returns array of all the (hopefully 6) recognized chars
-    return recognized_chars
+    # for i in range(6):
+    #     plotImage(testbram[i], str(recognized_chars[i]))
+    return recognized_chars, score_per_char
 
 
 def setup():
@@ -203,7 +226,6 @@ def setup():
 def difference_score(test_image, reference_character):
     reference_character = cv2.resize(reference_character, (len(test_image[0]), len(test_image)))
     # return the number of non-zero pixels
-
     return np.count_nonzero(cv2.bitwise_xor(test_image, reference_character))
 
 
@@ -368,10 +390,109 @@ def apply_thresholding(image):
     # Ensure that characters are white and background is black
     return 255 - thresh
 
+def apply_isodata_thresholding(image):
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    epsilon = 0.005
+    # Compute the histogram and set up variables
+    hist = np.array(cv2.calcHist([image], [0], None, [256], [0, 256])).flatten()
+    # t = np.random.randint(hist.nonzero()[0][0], 256 - hist[::-1].nonzero()[0][0])
+    t = np.mean(image)
+    old_t = -2*epsilon
+    
+    # Iterations of the isodata thresholding algorithm
+    while(abs(t - old_t) >= epsilon):
+        sum1 = 0
+        sum2 = 0
+        for i in range(0,int(t)):
+            sum1 = sum1 + hist[i] * i
+            sum2 = sum2 + hist[i]
+        m1 = sum1 / sum2
+        sum1 = 0
+        sum2 = 0
+        for i in range(int(t),len(hist)):
+            sum1 = sum1 + i * hist[i]
+            sum2 = sum2 + hist[i]
+        m2 = sum1 / sum2
+        #TODO Calculate new tau
+        old_t = t
+        t = (m1 + m2) / 2
+    for i in range(len(image)):
+        for j in range(len(image[0])):
+            if image[i][j] > t:
+                image[i][j] = 0
+            else:
+                image[i][j] = 255
+    # image = cv2.erode(image, np.ones((1, 5)))
+    # image = cv2.dilate(image, np.ones((1,5)))
+    return image
+    
+
+def remove_rows(image):
+    good_rows = []
+
+    for i in range(len(image)):
+        row = image[i]
+        white = False
+        count_whites = 0
+        count_blacks = 0
+        continues_whites = 0
+        continues_blacks = 0
+        for pixel in row:
+            if white:
+                if pixel == 0:
+                    white = False
+                    continues_whites = max(continues_whites, count_whites)
+                    count_whites = 0
+                    count_blacks = 1
+                else:
+                    count_whites += 1
+            else:
+                if pixel != 0:
+                    white = True
+                    continues_blacks = max(continues_blacks, count_blacks)
+                    count_blacks = 0
+                    count_whites = 1
+                else:
+                    count_blacks += 1
+        continues_whites = max(continues_whites, count_whites)
+        continues_blacks = max(continues_blacks, count_blacks)
+
+        whites = cv2.countNonZero(row)
+        if whites < 0.7*len(row) and whites > 0.1*len(row) and continues_blacks < 0.3*len(row) and continues_whites < 0.2*len(row):
+            good_rows.append(i)
+    newimage = []
+    # for i in range(int((len(image)-len(good_rows))/2)):
+    #     newimage.append(np.zeros(len(image[0])))
+
+    for i in good_rows:
+        newimage.append(image[i])
+
+    # for i in range(int((len(image)-len(good_rows))/2)):
+    #     newimage.append(np.zeros(len(image[0])))
+    return np.array(newimage) 
 
 def separate(plate):
     # get horizontal character interval boundaries
     boxes = get_horizontal_positions(plate)
+
+    # current_image = []
+    # for row in plate:
+    #     roww = []
+    #     for p in row:
+    #         if p == 0:
+    #             roww.append([0,0,0])
+    #         else:
+    #             roww.append([255,255,255])
+    #     current_image.append(np.array(roww))
+    # current_image = np.array(current_image)
+
+    # for box in boxes:
+    #     # current_image[0:1,box[0]:box[1]+1] = [0, 255, 0]
+    #     current_image[:,box[0]] = [0, 255, 0]
+    #     current_image[:, box[1]] = [0, 255, 0]
+    # plotImage(current_image)
+
+
 
     # get positions of the two so called 'dots' in a license plate
     gaps = []

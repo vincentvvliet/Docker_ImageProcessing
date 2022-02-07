@@ -44,64 +44,50 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
     if (cap.isOpened() == False):
         print("Error opening video stream or file")
 
+    sift = cv2.xfeatures2d.SIFT_create()
+    index_params = dict(algorithm=0, trees=5)
+    search_params = dict()
+    flann = cv2.FlannBasedMatcher(index_params, search_params)
+
     count = -1
     # Read until video is completed
     while cap.isOpened():
 
         count += 1
-        sift = cv2.xfeatures2d.SIFT_create()
-        index_params = dict(algorithm=0, trees=5)
-        search_params = dict()
-        flann = cv2.FlannBasedMatcher(index_params, search_params)
 
         # Capture frame-by-frame
         ret, frame = cap.read()
         if ret == True:
             # Frame skipping s.t. Category IV is skipped and frames are not on boundary of interval in evaluator
-            if (count - 1) % 1 == 0 and count >= 1000:
-                plate, found = find_plate(frame)
-                if not found:
-                    continue
-
-                # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                _, desc = sift.detectAndCompute(plate, None)
-                if len(same_car) == 0:
-                    same_car.append([desc, 300])
-                else:
-                    matches = flann.knnMatch(same_car[-1][0], desc, k=2)
-                    ratio = 0.3
-                    match = 0
-                    for m, n in matches:
-                        if m.distance < ratio*n.distance:
-                            match += 1
-                    if match < same_car[-1][1]/2.0:
-                        print(count)      
-                    same_car.append([desc, match])
-
-
-                
-
+            if (count - 1) % 24 == 0 and count >= 1:
                 # plate, found = find_plate(frame)
-                # segment_and_recognize(plate, found, count)
+                # if not found:
+                #     continue
+                #
+                # plotImage(plate)
+                #
+                # # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                # _, desc = sift.detectAndCompute(plate, None)
+                # if len(same_car) == 0:
+                #     same_car.append([desc, 300])
+                # else:
+                #     matches = flann.knnMatch(same_car[-1][0], desc, k=2)
+                #     ratio = 0.3
+                #     match = 0
+                #     for m, n in matches:
+                #         if m.distance < ratio*n.distance:
+                #             match += 1
+                #     if match < same_car[-1][1]/2.0:
+                #         print(count)
+                #     same_car.append([desc, match])
 
-                # if len(recognized_plates) > 1:
-                #     current_string = recognized_plates[-1][0]
-                #     prev_string = recognized_plates[-2][0]
-                #     diff = 0
-                #     index = 0
-                #     for i in range(8):
-                #         if current_string[i] != prev_string[i]:
-                #             diff += 1
-                #             index = i
-                #     if diff == 1:
-                #         if sum(scores[-1]) < sum(scores[-2]):
-                #             recognized_plates[-2][0] = current_string
-                #         else:
-                #             recognized_plates[-1][0] = prev_string
-                #             scores[-1][index] = scores[-2][index]
 
+                print(count)
 
-                # write(recognized_plates, save_path)
+                plate, found = find_plate(frame)
+                segment_and_recognize(plate, found, count)
+
+                write(recognized_plates, save_path)
 
                 # Press Q on keyboard to  exit
                 if cv2.waitKey(25) & 0xFF == ord('q'):

@@ -58,50 +58,30 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
         ret, frame = cap.read()
         if ret == True:
             # Frame skipping s.t. Category IV is skipped and frames are not on boundary of interval in evaluator
-            if (count - 1) % 1 == 0 and count >= 1000:
+            if (count - 1) % 36 == 0 and count > 0 and count < 1600:
+                print(count)
                 plate, found = find_plate(frame)
-                if not found:
-                    continue
+                # if not found:
+                #     continue
 
-                # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                _, desc = sift.detectAndCompute(plate, None)
-                if len(same_car) == 0:
-                    same_car.append([desc, 300])
-                else:
-                    matches = flann.knnMatch(same_car[-1][0], desc, k=2)
-                    ratio = 0.3
-                    match = 0
-                    for m, n in matches:
-                        if m.distance < ratio*n.distance:
-                            match += 1
-                    if match < same_car[-1][1]/2.0:
-                        print(count)      
-                    same_car.append([desc, match])
-
-
-                
+                # # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                # _, desc = sift.detectAndCompute(plate, None)
+                # if len(same_car) == 0:
+                #     same_car.append([desc, 300])
+                # else:
+                #     matches = flann.knnMatch(same_car[-1][0], desc, k=2)
+                #     ratio = 0.3
+                #     match = 0
+                #     for m, n in matches:
+                #         if m.distance < ratio*n.distance:
+                #             match += 1
+                #     if match < same_car[-1][1]/2.0:
+                #         print(count)      
+                #     same_car.append([desc, match])
 
                 # plate, found = find_plate(frame)
-                # segment_and_recognize(plate, found, count)
-
-                # if len(recognized_plates) > 1:
-                #     current_string = recognized_plates[-1][0]
-                #     prev_string = recognized_plates[-2][0]
-                #     diff = 0
-                #     index = 0
-                #     for i in range(8):
-                #         if current_string[i] != prev_string[i]:
-                #             diff += 1
-                #             index = i
-                #     if diff == 1:
-                #         if sum(scores[-1]) < sum(scores[-2]):
-                #             recognized_plates[-2][0] = current_string
-                #         else:
-                #             recognized_plates[-1][0] = prev_string
-                #             scores[-1][index] = scores[-2][index]
-
-
-                # write(recognized_plates, save_path)
+                segment_and_recognize(plate, found, count)
+                write(recognized_plates, save_path)
 
                 # Press Q on keyboard to  exit
                 if cv2.waitKey(25) & 0xFF == ord('q'):

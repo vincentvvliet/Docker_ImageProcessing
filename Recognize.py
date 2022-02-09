@@ -50,19 +50,6 @@ Outputs:(One)
 Hints:
 	You may need to define other functions.
 """
-def testsift(images):
-    # char, score = give_label_two_scores_sift(sifts_letters['B'], True)
-    X = images[0][0:32]
-    X = crop_to_boundingbox(X)
-    plotImage(X)
-    # X = cv2.resize(X, (100,100))
-    kp, desc = sift.detectAndCompute(X, None)
-    # for i in range(1,10):
-    #     print("ratio is 0."+str(i))
-    give_label_two_scores_sift(desc, False)
-    # color = cv2.cvtColor(X,cv2.COLOR_GRAY2RGB)
-    # img = cv2.drawKeypoints(X,kp,color)
-    # plotImage(img)
 
 
 def segment_and_recognize(image, found, frame):
@@ -140,28 +127,21 @@ def get_recognized_chars(images, plate, dot1, dot2):
     margin = int(0.1*char_height)
     margin = 0
 
-    # if(len(plate) <= char_height+margin):
-    #     char_height = len(plate) - margin - 1
-
     # try for all heights and choose the one where all the characters combined have the best diff_score
     for height in range(char_height-margin, char_height+margin+1):
         for i in range(max(1,len(plate)-height)):
             start_index = i 
             end_index = min(i+height, len(plate))
             recognized_chars, character_scores = recognize_characters(images, dot1, dot2, start_index, end_index)
-            # plotImage(plate[start_index:end_index], str(recognized_chars))
             # check if best score and update variables if needed
             if sum(character_scores) < sum(final_scores):
                 final = (start_index, end_index)
                 final_characters = recognized_chars
                 final_scores = character_scores
-                # testbram = testbram1
-    # plotImage(plate[final[0]:final[1]], str(final_characters))
     # returns array of all the (hopefully 6) recognized chars
     return final_characters, final_scores
 
 def recognize_characters(images, dot1, dot2, start_index, end_index):
-    testbram1 = []
     chars = []
     char_scores = []
     split_points = [0, dot1, dot2-1, len(images)]
@@ -179,7 +159,6 @@ def recognize_characters(images, dot1, dot2, start_index, end_index):
                 cropped = cv2.dilate(cropped, np.ones((3,3)))
                 # crop image to bounding box
                 cropped = crop_to_boundingbox(cropped)
-                # testbram1.append(cropped)
                 # make sure no errors occur
                 if len(cropped) < 2 or len(cropped[0]) < 2:
                     final_scores = [float('inf')]
@@ -220,7 +199,6 @@ def setup():
         # img = cv2.resize(img, (100,100))
         desc = sift_descriptor(img)
         if char.isdigit():
-            # print("char "+str(char)+": "+str(len(kp)))
             sifts_numbers[char] = desc 
         else:
             sifts_letters[char] = desc
@@ -372,9 +350,6 @@ def crop_to_boundingbox(image):
                 if j > maxj:
                     maxj = j
     return image[mini:maxi+1, minj:maxj + 1]
-    # if maxi-mini < maxj-minj:
-    #     return image[min(0, int(0.5*(maxi+mini)-0.5*(maxj-minj))):max(len(image), int(0.5*(maxi+mini)+0.5*(maxj-minj)))+1,minj:maxj+1]
-    # return image[mini:maxi+1,min(0, int(0.5*(maxj+minj)-0.5*(maxi-mini))):max(len(image[0]), int(0.5*(maxj+minj)+0.5*(maxi-mini)))+1]
 
 
 def get_horizontal_positions(plate):
@@ -531,14 +506,6 @@ def remove_rows(image):
             elif len(chosen_rows) == best:
                 interval = (interval[0], chosen_rows[-1])
 
-            # img = cv2.cvtColor(image,cv2.COLOR_GRAY2RGB)
-            # for j in good_rows:
-            #     img[j,:] = [0, 255, 0]
-            # img[i,:] = [255,0,0]
-            # img[i+char_height-1]=[255,0,0]
-            # print(i)
-            # print(i+char_height)
-            # plotImage(img, str(len(chosen_rows))+ " rows")
         start_crop = max(0, interval[1] - char_height + 1)
         end_crop = min(len(image), interval[0] + char_height)
 
@@ -549,16 +516,8 @@ def remove_rows(image):
         if whites < 0.8*len(image[0]) and whites > 0.2*len(image[0]):
             newimage.append(row)
     image = np.array(newimage)
-    # plotImage(image)
     return image, True 
 
-        # img = cv2.cvtColor(image,cv2.COLOR_GRAY2RGB)
-        # for i in good_rows:
-        #     img[i,:] = [0, 255, 0]
-        # img[start_crop, :] = [255, 255, 255]
-        # img[end_crop, :] = [255, 255, 255]
-        # plotImage(img)
-    # return img, False
 
 def separate(plate):
     # get horizontal character interval boundaries

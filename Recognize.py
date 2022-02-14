@@ -99,7 +99,7 @@ def segment_and_recognize(image, found, frame, compare):
             # testsift(char_images)
             # recognize character images
             recognized_chars, score = get_recognized_chars(char_images, binary, dot1, dot2)
-    # when the dots are at invalid postions found, or either the amount of characters found is not 6, 
+    # when the dots are at invalid positions found, or either the amount of characters found is not 6,
     # we assume it was no licence plate, so we try other contours
     if len(recognized_chars) != 6 or dot1 == 0 or dot2 == 0 or dot1 == 7 or dot2 == 7 or abs(dot1 - dot2) < 2 or abs(
             dot1 - dot2) > 4 or (dot1 > 3 and dot2 > 3) or (dot1 < 4 and dot2 < 4):
@@ -124,7 +124,6 @@ def segment_and_recognize(image, found, frame, compare):
     new_plate = []
     final_frame = 0
 
-    # TODO refactor method????
     if compare:
         # Final frame of same plate, therefore time to compare
         # print("Same_car_plates:", same_car_plates)

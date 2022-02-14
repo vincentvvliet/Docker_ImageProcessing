@@ -4,7 +4,6 @@ import cv2
 import matplotlib.pyplot as plt
 
 from Localization import find_plate
-from Localization import apply_gaussian
 from Recognize import recognized_plates
 from Recognize import segment_and_recognize
 
@@ -64,9 +63,6 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
                 if not found:
                     continue
 
-                # plotImage(plate)
-
-                # # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 _, desc = sift.detectAndCompute(plate, None)
                 compare = False
 
@@ -103,11 +99,12 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
                 # print("same_car size:", len(same_car))
                 segment_and_recognize(plate, found, count, compare)
 
+                # TODO when finished: remove this write and
+                #  uncomment writing after processing whole video
                 write(recognized_plates, save_path)
 
                 # Press Q on keyboard to  exit
-                if cv2.waitKey(25) & 0xFF == ord('q'):
-                    break
+                if cv2.waitKey(25) & 0xFF == ord('q'):                    break
 
         # Break the loop
         else:

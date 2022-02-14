@@ -38,7 +38,7 @@ while cap.isOpened():
 
             # indices, angles, boxes = get_all_contours_info(frame)
             plate, found = find_plate(frame)
-            segment_and_recognize(plate, found, count)
+            segment_and_recognize(plate, found, count, False)
 
             # Press Q on keyboard to  exit
             if cv2.waitKey(25) & 0xFF == ord('q'):

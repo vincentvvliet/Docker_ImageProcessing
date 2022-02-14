@@ -100,8 +100,7 @@ def find_plate(image):
 
 
 def apply_yellow_mask(image):
-    kernel = cv2.getGaussianKernel(30, 10)
-    image = cv2.filter2D(image, -1, kernel)
+    image = apply_gaussian(image)
     # Define color range
     colorMin = np.array([1, 60, 60])
     colorMax = np.array([26, 255, 255])
@@ -113,3 +112,6 @@ def apply_yellow_mask(image):
     masked = cv2.bitwise_and(image, image, mask=mask)
     masked = cv2.cvtColor(masked, cv2.COLOR_HSV2RGB)
     return masked
+
+def apply_gaussian(image):
+    return cv2.filter2D(image, -1, cv2.getGaussianKernel(30, 10))

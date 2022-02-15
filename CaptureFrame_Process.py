@@ -101,10 +101,11 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
 
                 # TODO when finished: remove this write and
                 #  uncomment writing after processing whole video
-                write(recognized_plates, save_path)
+                # write(recognized_plates, save_path)
 
                 # Press Q on keyboard to  exit
-                if cv2.waitKey(25) & 0xFF == ord('q'):                    break
+                if cv2.waitKey(25) & 0xFF == ord('q'):
+                    break
 
         # Break the loop
         else:
@@ -117,7 +118,7 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
     cv2.destroyAllWindows()
 
     # Write to file
-    # write(recognized_plates, save_path)
+    write(recognized_plates, save_path)
 
 
 def write(plates, save_path):

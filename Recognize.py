@@ -18,6 +18,7 @@ recognized_plates = []
 scores = []
 frames = []
 same_car_plates = []
+same_car_scores = []
 sifts_numbers = {}
 sifts_letters = {}
 sift = cv2.xfeatures2d.SIFT_create(nfeatures=150)
@@ -56,6 +57,7 @@ Hints:
 
 def compare_neighbours(character_array):
     # TODO what to do with ties?
+    #  weights? -> lower score better
     neighbours = {}
     for char in character_array:
         if char in neighbours:
@@ -63,12 +65,11 @@ def compare_neighbours(character_array):
         else:
             neighbours[char] = 1
 
-    final_character = max(neighbours, key=neighbours.get)
-    return final_character
+    return max(neighbours, key=neighbours.get)
 
 
 def segment_and_recognize(image, found, frame, compare):
-    global same_car_plates, frames
+    global same_car_plates, same_car_scores, frames
     # Call setup only once
     setup()
     # return immediately when nothing was not found in localization
@@ -126,12 +127,20 @@ def segment_and_recognize(image, found, frame, compare):
 
     if compare:
         # Final frame of same plate, therefore time to compare
-        # print("Same_car_plates:", same_car_plates)
+        print("Same_car_plates:", same_car_plates)
+        print("Same_car_scores:", same_car_scores)
 
         if len(same_car_plates) == 0:
             # Localization failed, return
             # TODO check if return is correct (if any functionality after if statement is necessary)
             return
+
+        # Checking lowest sift score only -> 55%
+        # new_scores = []
+        # for i, score in enumerate(same_car_scores):
+        #     new_scores.append((same_car_plates[i], sum(score)))
+        # new_plate = sorted(new_scores, key=lambda x: x[1])[0][0]
+        # print(new_plate)
 
         # Compare plates to each other
         for i, char in enumerate(same_car_plates[-1]):
@@ -139,11 +148,11 @@ def segment_and_recognize(image, found, frame, compare):
             # Loop over all characters in last found plate
             for current_plate in same_car_plates:
                 # Loop over all other plates of same car
-                if current_plate == same_car_plates[-1]:
+                if current_plate is same_car_plates[-1]:
                     continue
 
                 current_char.append(current_plate[i])
-            # print("current_char:", current_char)
+            print("current_char:", current_char)
             # Create new plate using kNN implementation
             new_plate.append(compare_neighbours(current_char))
 
@@ -155,12 +164,14 @@ def segment_and_recognize(image, found, frame, compare):
         plate = final_plate
         append_known_plates = True
         same_car_plates = []
+        same_car_scores = []
         final_frame = sum(frames) / len(frames)
         frames = [frame]
 
     if len(new_plate) == 0:
         # No comparison done yet, add plate
         same_car_plates.append(plate)
+        same_car_scores.append(scores_final)
         frames.append(frame)
 
     # Append the recognised characters, frame no. and time (rounded down)
@@ -172,11 +183,6 @@ def segment_and_recognize(image, found, frame, compare):
     if append_known_plates:
         recognized_plates.append(plate_info)
     scores.append(scores_final)
-
-    # Only write at the end
-    # if frame > 2000:
-    #     write(recognized_plates)
-
 
 def format_plate(plate):
     final_plate = ''

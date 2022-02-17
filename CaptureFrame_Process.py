@@ -1,17 +1,11 @@
-import cv2
-import os
-import pandas as pd
 import csv
+
+import cv2
 import matplotlib.pyplot as plt
 
 from Localization import find_plate
-from Localization import apply_yellow_mask
-from Localization import get_bounding_box
-from Recognize import segment_and_recognize
 from Recognize import recognized_plates
-from Recognize import scores
-from Recognize import sift_descriptor
-from Recognize import apply_isodata_thresholding
+from Recognize import segment_and_recognize
 
 """
 In this file, you will define your own CaptureFrame_Process funtion. In this function,
@@ -30,13 +24,16 @@ INVALID = [601, 769, 913, 985, 1129, 1177, 1225, 1321, 1369, 1417, 1441, 1465, 1
 same_car = []
 plates_found = []
 
+
 def plotImage(img, title=""):
     # Display image
     plt.imshow(img, cmap=plt.cm.gray, vmin=0, vmax=255)
     plt.title(title)
     plt.show()
 
+
 def CaptureFrame_Process(file_path, sample_frequency, save_path):
+    global same_car
     # Create a VideoCapture object and read from input file
     cap = cv2.VideoCapture(file_path)
 
@@ -59,35 +56,52 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
         ret, frame = cap.read()
         if ret == True:
             # Frame skipping s.t. Category IV is skipped and frames are not on boundary of interval in evaluator
-            if (count - 1) % 36 == 0 and count > 0:
-                # plate, found = find_plate(frame)
-                # if not found:
-                #     continue
-                #
-                # plotImage(plate)
-                #
-                # # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                # _, desc = sift.detectAndCompute(plate, None)
-                # if len(same_car) == 0:
-                #     same_car.append([desc, 300])
-                # else:
-                #     matches = flann.knnMatch(same_car[-1][0], desc, k=2)
-                #     ratio = 0.3
-                #     match = 0
-                #     for m, n in matches:
-                #         if m.distance < ratio*n.distance:
-                #             match += 1
-                #     if match < same_car[-1][1]/2.0:
-                #         print(count)
-                #     same_car.append([desc, match])
-
-
+            if (count - 1) % 8 == 0 and count > 0:
                 print(count)
 
                 plate, found = find_plate(frame)
-                segment_and_recognize(plate, found, count)
+                if not found:
+                    continue
 
-                write(recognized_plates, save_path)
+                _, desc = sift.detectAndCompute(plate, None)
+                compare = False
+
+                if desc is not None:
+                    if len(same_car) != 0:
+                        # 2nd or more occurrence of plate
+                        if (len(same_car[-1][0]) < 2 or len(desc) < 2):
+                            # If not enough features for k=2 kNN match, then skip frame
+                            continue
+                        matches = flann.knnMatch(same_car[-1][0], desc, k=2)
+                        ratio = 0.3
+                        match_score = 0
+                        for m, n in matches:
+                            if m.distance < ratio * n.distance:
+                                match_score += 1
+
+                        # print("score:", match_score)
+                        if match_score < 30 / 2.0:
+                            # print("different plate")
+                            # Different plate
+                            # Only compare as soon as all frames of same plate have passed
+                            compare = True
+
+                            # Re-initialize for this plate
+                            same_car = [[desc, match_score]]
+                        else:
+                            # Same plate, therefore append
+                            same_car.append([desc, 30])
+                            compare = False
+                    else:
+                        # Empty, therefore first occurrence of plate
+                        same_car.append([desc, 30])
+
+                # print("same_car size:", len(same_car))
+                segment_and_recognize(plate, found, count, compare)
+
+                # TODO when finished: remove this write and
+                #  uncomment writing after processing whole video
+                # write(recognized_plates, save_path)
 
                 # Press Q on keyboard to  exit
                 if cv2.waitKey(25) & 0xFF == ord('q'):
@@ -104,7 +118,8 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
     cv2.destroyAllWindows()
 
     # Write to file
-    # write(recognized_plates, save_path)
+    write(recognized_plates, save_path)
+
 
 def write(plates, save_path):
     # open the file in the write mode

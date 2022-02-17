@@ -73,10 +73,13 @@ def segment_and_recognize(image, found, frame):
         binary, found = remove_rows(binary)
         if not found:
             return
+
         # make sure no errors occur
         if cv2.countNonZero(binary) != 0:
             # seperate characters from image
-            char_images, dot1, dot2 = separate(binary)
+            char_images, dot1, dot2, found = segment(binary)
+            if not found:
+                return
             # testsift(char_images)
             # recognize character images
             recognized_chars, score = get_recognized_chars(char_images, binary, dot1, dot2)
@@ -547,3 +550,60 @@ def separate(plate):
         char = plate[:, box[0]:box[1]]
         characters.append(char)
     return characters, dot1, dot2
+
+def segment(image):
+    eroded = cv2.erode(image, np.ones((3,1)))
+    eroded = cv2.dilate(eroded, np.ones((1,3)))
+    char_width = 0.1 * len(image[0])
+
+    boxes = []
+    in_box = False
+    for j in range(len(image[0])):
+        if cv2.countNonZero(eroded[:,j]) > 0.1*len(image):
+            if not in_box:
+                in_box = True
+                boxes.append((j,j))
+        else:
+            if in_box:
+                in_box = False
+                boxes[-1] = (boxes[-1][0], j)
+    if in_box:
+        boxes[-1] = (boxes[-1][0], len(image[0])-1)
+    
+    boxes_width = []
+    for box in boxes:
+        boxes_width.append(box[1]-box[0])
+    boxes_width = np.argsort(boxes_width)
+    if len(boxes) < 6:
+        print("probleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeem")
+        return [], 0, 0, False 
+    boxes_width = boxes_width[len(boxes_width)-6:]
+
+    gaps = []
+    boxes_final = []
+    characters = []
+    boxes_width = np.sort(boxes_width)
+    for i in boxes_width:
+        boxes_final.append(boxes[i])
+        characters.append(image[:,boxes[i][0]:boxes[i][1]])
+
+    for i in range(len(boxes_final)-1):
+        gaps.append(boxes_final[i+1][0]-boxes_final[i][1])
+    gaps = np.argsort(gaps)
+    dash1 = min(gaps[-1],gaps[-2])
+    dash2 = max(gaps[-1],gaps[-2])
+
+    dash1 += 1
+    dash2 += 2
+
+    return characters, dash1, dash2, True
+    # image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    # for i in boxes_width:
+    #     image[:,boxes[i][0]] = [0, 255, 0]
+    #     image[:,boxes[i][1]] = [0, 255, 0]
+    # plotImage(image)
+    # return image, True
+
+
+
+            

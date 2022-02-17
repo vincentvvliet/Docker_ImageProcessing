@@ -85,7 +85,7 @@ def segment_and_recognize(image, found, frame, compare):
     recognized_chars = []
     # make sure no errors occur
     if len(image) > 1 and len(image[0]) > 1:
-        binary = apply_thresholding(image)
+        binary = apply_isodata_thresholding(image)
         # binary = cv2.dilate(binary, np.ones((4,4)))
 
         # binary = cv2.erode(binary, np.ones((4,4)))

@@ -98,7 +98,8 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
 
                 # print("same_car size:", len(same_car))
                 segment_and_recognize(plate, found, count, compare)
-
+                if compare:
+                    write(recognized_plates, save_path)
                 # TODO when finished: remove this write and
                 #  uncomment writing after processing whole video
                 # write(recognized_plates, save_path)

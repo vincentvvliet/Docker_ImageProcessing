@@ -22,7 +22,6 @@ Output: None
 """
 INVALID = [601, 769, 913, 985, 1129, 1177, 1225, 1321, 1369, 1417, 1441, 1465, 1513, 1561, 1609]
 same_car = []
-plates_found = []
 
 
 def plotImage(img, title=""):
@@ -34,6 +33,7 @@ def plotImage(img, title=""):
 
 def CaptureFrame_Process(file_path, sample_frequency, save_path):
     global same_car
+    done_with_car = False
     # Create a VideoCapture object and read from input file
     cap = cv2.VideoCapture(file_path)
 
@@ -56,7 +56,7 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
         ret, frame = cap.read()
         if ret == True:
             # Frame skipping s.t. Category IV is skipped and frames are not on boundary of interval in evaluator
-            if (count - 1) % 8 == 0 and count > 0:
+            if (count - 1) % 4 == 0 and count >= 0 and count < 1600:
                 print(count)
 
                 plate, found = find_plate(frame)
@@ -85,7 +85,7 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
                             # Different plate
                             # Only compare as soon as all frames of same plate have passed
                             compare = True
-
+                            done_with_car = False
                             # Re-initialize for this plate
                             same_car = [[desc, match_score]]
                         else:
@@ -97,8 +97,8 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
                         same_car.append([desc, 30])
 
                 # print("same_car size:", len(same_car))
-                segment_and_recognize(plate, found, count, compare)
-                if compare:
+                if not done_with_car:
+                    done_with_car = segment_and_recognize(plate, found, count, compare)
                     write(recognized_plates, save_path)
                 # TODO when finished: remove this write and
                 #  uncomment writing after processing whole video

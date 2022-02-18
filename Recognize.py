@@ -139,7 +139,6 @@ def segment_and_recognize(image, found, frame, compare):
             scores_final.append(0)
         recognized.append(recognized_chars[i])
         scores_final.append(score[i])
-    print(recognized)
     if recognized.count('-') != 2:
         print("not 2 dots")
         return False
@@ -295,7 +294,7 @@ def get_recognized_chars(images, plate, dot1, dot2):
     # we assumed each character has a height of approximately 17% of the plates width
     char_height = int(float(0.18 * len(plate[0])))
     margin = int(0.1 * char_height)
-    margin = 0
+    
 
     # try for all heights and choose the one where all the characters combined have the best diff_score
     for height in range(char_height - margin, char_height + margin + 1):

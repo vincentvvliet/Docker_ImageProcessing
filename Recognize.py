@@ -77,17 +77,35 @@ def compare_neighbours(character_array, scores_array, is_digit):
     if len(chosen) == 1:
         return chosen[0]
 
-    scores = {}    
+    scores = {}
 
     for i in range(len(character_array)):
         if character_array[i] in chosen:
             scores[character_array[i]] = scores_array[i]
     return max(scores, key=scores.get)
 
+    # for info in character_array:
+    #     weight = 1 / (info[1] / info[2][1]) if info[2][1] and (info[1] / info[2][1]) != 0 else 0
+    #     if info[0] in neighbours:
+    #         neighbours[info[0]] += weight
+    # else:
+    #     neighbours[info[0]] = weight
+
+# TODO check -
+# def get_final_plate(character_array):
+#     print(character_array)
+#     result = []
+#     for x in character_array:
+#         result.append(compare_neighbours(x))
+#
+#     if result.count('-') != 2:
+#         return get_final_plate(character_array[:-1])
+#     return result
 
 
 def segment_and_recognize(image, found, frame, compare):
     global same_car_plates, same_car_scores, frames
+
     # Call setup only once
     setup()
     # return immediately when nothing was not found in localization
@@ -149,42 +167,43 @@ def segment_and_recognize(image, found, frame, compare):
 
     if len(same_car_plates) > 1:
         unique, counts = np.unique(same_car_plates, return_counts=True)
-        if max(counts) > 0.75*len(same_car_plates):
+        if max(counts) > 0.75 * len(same_car_plates):
             same_car_plates = [unique[np.argmax(counts)]]
             compare = True
 
     if compare:
         # Final frame of same plate, therefore time to compare
+        print("Same_car_plates:", same_car_plates)
+        print("Same_car_scores:", same_car_scores)
 
         if len(same_car_plates) == 0:
             # Localization failed, return
             # TODO check if return is correct (if any functionality after if statement is necessary)
             return False
 
-        # Checking lowest sift score only -> 55%
         # new_scores = []
         # for i, score in enumerate(same_car_scores):
         #     new_scores.append((same_car_plates[i], sum(score)))
         # new_plate = sorted(new_scores, key=lambda x: x[1])[0][0]
         # print(new_plate)
         if len(same_car_plates) > 1:
-            is_digits1 = [0,0]
-            is_digits2 = [0,0]
-            is_digits3 = [0,0]
+            is_digits1 = [0, 0]
+            is_digits2 = [0, 0]
+            is_digits3 = [0, 0]
             dash1_pos = np.zeros(8)
             dash2_pos = np.zeros(8)
             for plate in same_car_plates:
                 dash1 = plate.index('-')
-                dash2 = plate.index('-', dash1+1)
-                if plate[dash1-1].isdigit():
+                dash2 = plate.index('-', dash1 + 1)
+                if plate[dash1 - 1].isdigit():
                     is_digits1[1] += 1
                 else:
                     is_digits1[0] += 1
-                if plate[dash1+1].isdigit():
+                if plate[dash1 + 1].isdigit():
                     is_digits2[1] += 1
                 else:
                     is_digits2[0] += 1
-                if plate[dash2+1].isdigit():
+                if plate[dash2 + 1].isdigit():
                     is_digits3[1] += 1
                 else:
                     is_digits3[0] += 1
@@ -193,15 +212,7 @@ def segment_and_recognize(image, found, frame, compare):
                 dash2_pos[dash2] += 1
 
             is_digits = []
-            if np.argmax(is_digits1) == 0:
-                is_digits.append(False)
-            else:
-                is_digits.append(True)
-            if np.argmax(is_digits2) == 0:
-                is_digits.append(False)
-            else:
-                is_digits.append(True)
-            if np.argmax(is_digits3) == 0:
+            if np.argmax(is_digits1) == 0 or np.argmax(is_digits2) == 0 or np.argmax(is_digits3) == 0:
                 is_digits.append(False)
             else:
                 is_digits.append(True)
@@ -214,7 +225,9 @@ def segment_and_recognize(image, found, frame, compare):
                     dash2 = same_car_plates[i].index('-', dash1)
                     if dash1 != dashes[0] or dash2 != dashes[1]:
                         same_car_plates[i] = same_car_plates[i].replace('-', '')
-                        same_car_plates[i] = same_car_plates[i][:dashes[0]] + '-' + same_car_plates[i][dashes[0]:dashes[1]-1] + '-' + same_car_plates[i][dashes[1]-1:]
+                        same_car_plates[i] = same_car_plates[i][:dashes[0]] + '-' + same_car_plates[i][
+                                                                                    dashes[0]:dashes[1] - 1] + '-' + \
+                                             same_car_plates[i][dashes[1] - 1:]
 
             # Compare plates to each other
             for i, char in enumerate(same_car_plates[-1]):
@@ -235,18 +248,13 @@ def segment_and_recognize(image, found, frame, compare):
                     current_score.append(current_scores[i])
 
                 # Create new plate using kNN implementation
-                if i < dashes[0]:
-                    is_digit = is_digits[0]
-                elif i > dashes[0] and i < dashes[1]:
-                    is_digit = is_digits[1]
-                else:
-                    is_digit = is_digits[2]
+                is_digit = is_digits[0] if i < dashes[0] else is_digits[1] if dashes[0] < i < dashes[1] else is_digits[2]
                 new_plate.append(compare_neighbours(current_char, current_score, is_digit))
         else:
             new_plate = same_car_plates[0]
 
-        # Format plate
-        final_plate = format_plate(new_plate)
+        # Create new plate using kNN implementation and format plate
+        final_plate = format_plate(new_plate)  # get_final_plate()
         # print("final plate:", final_plate)
 
         # Update variables
@@ -256,9 +264,6 @@ def segment_and_recognize(image, found, frame, compare):
         same_car_scores = []
         final_frame = sum(frames) / len(frames)
         frames = [frame]
-
-
-
 
     if len(new_plate) == 0:
         # No comparison done yet, add plate
@@ -278,6 +283,7 @@ def segment_and_recognize(image, found, frame, compare):
 
     return compare
 
+
 def format_plate(plate):
     final_plate = ''
     for char in plate:
@@ -294,7 +300,6 @@ def get_recognized_chars(images, plate, dot1, dot2):
     # we assumed each character has a height of approximately 17% of the plates width
     char_height = int(float(0.18 * len(plate[0])))
     margin = int(0.1 * char_height)
-    
 
     # try for all heights and choose the one where all the characters combined have the best diff_score
     for height in range(char_height - margin, char_height + margin + 1):
@@ -651,17 +656,17 @@ def remove_rows(image):
         continues_blacks = max(continues_blacks, count_blacks)
 
         whites = cv2.countNonZero(row)
-        if whites > 0.7*len(row) or whites < 0.1 * len(row):
+        if whites > 0.7 * len(row) or whites < 0.1 * len(row):
             invalid_rows.append(i)
     if len(invalid_rows) == 0:
         return [], False
 
     crop = (0, invalid_rows[0])
     for i in range(1, len(invalid_rows)):
-        if invalid_rows[i] - invalid_rows[i-1] > crop[1]-crop[0]:
-            crop = (invalid_rows[i-1],invalid_rows[i])
+        if invalid_rows[i] - invalid_rows[i - 1] > crop[1] - crop[0]:
+            crop = (invalid_rows[i - 1], invalid_rows[i])
 
-    return image[crop[0]:crop[1]+1], True
+    return image[crop[0]:crop[1] + 1], True
     #     if whites < 0.7 * len(row) and whites > 0.1 * len(row) and continues_blacks < 0.3 * len(
     #             row) and continues_whites < 0.2 * len(row):
     #         good_rows.append(i)
@@ -734,15 +739,16 @@ def separate(plate):
         characters.append(char)
     return characters, dot1, dot2
 
+
 def segment(image):
     # eroded = cv2.erode(image, np.ones((3,3)))
     # eroded = cv2.dilate(eroded, np.ones((3,3)))
     char_width = 0.1 * len(image[0])
-    margin = 0.4*char_width
+    margin = 0.4 * char_width
 
     whites_per_column = []
     for j in range(len(image[0])):
-        whites = cv2.countNonZero(image[:,j])
+        whites = cv2.countNonZero(image[:, j])
         while len(whites_per_column) <= whites:
             whites_per_column.append([])
         whites_per_column[whites].append(j)
@@ -764,14 +770,14 @@ def segment(image):
         index_tuples = []
         tuple_widths = []
         continue_loop = False
-        for i in range(len(columns_below_threshold)-1):
+        for i in range(len(columns_below_threshold) - 1):
             # bgr[:, columns_below_threshold[i]] = [0, 255, 0]
-            width = columns_below_threshold[i+1] - columns_below_threshold[i]
-            if width > char_width+margin:
+            width = columns_below_threshold[i + 1] - columns_below_threshold[i]
+            if width > char_width + margin:
                 continue_loop = True
                 break
             else:
-                index_tuples.append((columns_below_threshold[i],columns_below_threshold[i+1]))
+                index_tuples.append((columns_below_threshold[i], columns_below_threshold[i + 1]))
                 tuple_widths.append(width)
 
         if continue_loop:
@@ -780,31 +786,24 @@ def segment(image):
         if len(index_tuples) >= 6:
             boxes = []
             indices = np.argsort(tuple_widths)
-            indices = indices[len(indices)-6:]
+            indices = indices[len(indices) - 6:]
             indices = np.sort(indices)
             for i in indices:
                 boxes.append(index_tuples[i])
             break
 
     if len(boxes) != 6:
-        return [], 1,1,False
-
-
-
-
-
-
+        return [], 1, 1, False
 
     character_images = []
     gaps = []
     for i in range(len(boxes)):
-        character_images.append(image[:,boxes[i][0]:boxes[i][1]])
+        character_images.append(image[:, boxes[i][0]:boxes[i][1]])
         if i != 0:
-            gaps.append(boxes[i][0]-boxes[i-1][1])
+            gaps.append(boxes[i][0] - boxes[i - 1][1])
     gap_indices = np.argsort(gaps)
     dash1 = min(gap_indices[-1], gap_indices[-2]) + 1
     dash2 = max(gap_indices[-1], gap_indices[-2]) + 2
-
 
     # bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
     # for box in boxes:
@@ -813,7 +812,6 @@ def segment(image):
     # plotImage(bgr, str(dash1)+", "+str(dash2))
 
     return character_images, dash1, dash2, True
-
 
     # boxes = []
     # in_box = False
@@ -828,8 +826,6 @@ def segment(image):
     #             boxes[-1] = (boxes[-1][0], j)
     # if in_box:
     #     boxes[-1] = (boxes[-1][0], len(image[0])-1)
-    
-
 
     # boxes_width = []
     # for box in boxes:
@@ -865,8 +861,3 @@ def segment(image):
     # plotImage(image, str(dash1)+", "+str(dash2))
 
     # return characters, dash1, dash2, True
-
-
-
-
-            

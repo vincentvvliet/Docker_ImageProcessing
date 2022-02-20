@@ -18,6 +18,14 @@ Hints:
 	2. You may need to define two ways for localizing plates(yellow or other colors)
 """
 
+
+def plotImage(img, title=""):
+    # Display image
+    plt.imshow(img, cmap=plt.cm.gray, vmin=0, vmax=255)
+    plt.title(title)
+    plt.show()
+
+
 def get_bounding_box(image):
     mini = len(image)
     minj = len(image[0])
@@ -35,6 +43,7 @@ def get_bounding_box(image):
                 if j > maxj:
                     maxj = j
     return mini, maxi, minj, maxj
+
 
 def find_plate(image):
     # apply yellow mask
@@ -80,6 +89,10 @@ def find_plate(image):
         mini, maxi, minj, maxj = get_bounding_box(rotated)
         width = maxj - minj
         height = maxi - mini
+
+        r = cv2.warpAffine(image, M, (len(image[0]), len(image)))
+        # plotImage(r[mini:maxi, minj:maxj])
+
         if width < 90 or height < 20:
             continue
 

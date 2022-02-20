@@ -20,7 +20,8 @@ if __name__ == '__main__':
 	# lastFrames = ground_truth['Last frame'].tolist()
 	result = np.zeros((totalPlates, 4))
 	# 0: TP, 1: FP, 2: LTP
-
+	counter = 0
+	correct = 0
 
 	# Find the last frame and number of plates for each category
 	numCategories = len(ground_truth['Category'].unique())
@@ -44,8 +45,10 @@ if __name__ == '__main__':
 			solutionTimeStamp = ground_truth['Timestamp'][index]
 			print("student:",licensePlate)
 			print("solution:",solutionPlate)
+			counter += 1
 			if licensePlate == solutionPlate:
-				print("correct")
+				correct += 1
+				print("correct:", correct / counter)
 				if timeStamp <= solutionTimeStamp + 2:
 					result[index, 0] += 1
 				else:

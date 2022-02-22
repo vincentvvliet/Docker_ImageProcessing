@@ -191,7 +191,7 @@ def segment_and_recognize(image, found, frame, compare):
         return False
 
     plate = format_plate(recognized)
-    new_plate = []
+    new_plate = ''
     final_frame = 0
 
     if len(same_car_plates) > 1:
@@ -212,7 +212,6 @@ def segment_and_recognize(image, found, frame, compare):
             return False
 
         if len(same_car_plates) > 1:
-            print(same_car_plates)
             is_digits1 = [0, 0]
             is_digits2 = [0, 0]
             is_digits3 = [0, 0]
@@ -272,7 +271,7 @@ def segment_and_recognize(image, found, frame, compare):
             # Compare plates to each other
             for i, char in enumerate(same_car_plates[-1]):
                 if char == '-':
-                    new_plate.append('-')
+                    new_plate += '-'
                     continue
                 current_char = [char]
                 current_score = [same_car_scores[-1][i]]
@@ -290,8 +289,7 @@ def segment_and_recognize(image, found, frame, compare):
 
                 new_scores = new_scores[-1:] + new_scores[:-1]
                 # Create new plate using kNN implementation
-                new_plate.append(compare_neighbours(current_char, current_score, new_scores, is_digit))  # , is_digit
-
+                new_plate += str(compare_neighbours(current_char, current_score, new_scores, is_digit))  # , is_digit
         else:
             new_plate = same_car_plates[0]
 
@@ -319,7 +317,8 @@ def segment_and_recognize(image, found, frame, compare):
     plate_info.append(round(final_frame / 12))
 
     # Add to list of known plates, only if final plate is known
-    if append_known_plates:
+    if compare:
+        print("klaar")
         recognized_plates.append(plate_info)
     scores.append(scores_final)
 

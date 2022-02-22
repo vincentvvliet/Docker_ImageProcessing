@@ -97,7 +97,7 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
 
                 # print("same_car size:", len(same_car))
                 if not done_with_car:
-                    segment_and_recognize(plate, found, count, compare)
+                    done_with_car = segment_and_recognize(plate, found, count, compare)
                     write(recognized_plates, save_path)
 
                 # Press Q on keyboard to  exit

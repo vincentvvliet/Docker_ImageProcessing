@@ -61,8 +61,8 @@ def compare_neighbours(character_array, character_score, plate_score):  # , is_d
     # print(character_score)
     # print(plate_score)
     for i, char in enumerate(character_array):
-        # if char.isdigit() != is_digit:
-        #     continue
+        if char.isdigit() != is_digit:
+            continue
 
         weight = character_score[i] / plate_score[i][1] if plate_score[i][1] != 0 else 0  # plate_score[i][1]
         # print(weight)
@@ -73,7 +73,20 @@ def compare_neighbours(character_array, character_score, plate_score):  # , is_d
 
     # print(neighbours)
 
-    return max(neighbours, key=neighbours.get)
+    best = max(neighbours, key=neighbours.get)
+    chosen = [best]
+    for key, value in neighbours.items():
+        if key not in chosen and value == neighbours[best]:
+            chosen.append(key)
+    if len(chosen) == 1:
+        return chosen[0]
+
+    scores = {}
+
+    for i in range(len(character_array)):
+        if character_array[i] in chosen:
+            scores[character_array[i]] = scores_array[i]
+    return max(scores, key=scores.get)
 
 
 # def compare_neighbours(character_array, scores_array, is_digit):
@@ -87,19 +100,19 @@ def compare_neighbours(character_array, character_score, plate_score):  # , is_d
 #             neighbours[char] += 1
 #         else:
 #             neighbours[char] = 1
-#
-#
+
+
 #     best = max(neighbours, key=neighbours.get)
-#
+
 #     chosen = [best]
 #     for key, value in neighbours.items():
 #         if key not in chosen and value == neighbours[best]:
 #             chosen.append(key)
 #     if len(chosen) == 1:
 #         return chosen[0]
-#
+
 #     scores = {}
-#
+
 #     for i in range(len(character_array)):
 #         if character_array[i] in chosen:
 #             scores[character_array[i]] = scores_array[i]

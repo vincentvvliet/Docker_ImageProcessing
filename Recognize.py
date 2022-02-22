@@ -55,7 +55,7 @@ Hints:
 """
 
 
-def compare_neighbours(character_array, character_score, plate_score):  # , is_digit
+def compare_neighbours(character_array, character_score, plate_score, is_digit):  # , is_digit
     neighbours = {}
     # print(character_array)
     # print(character_score)
@@ -85,7 +85,7 @@ def compare_neighbours(character_array, character_score, plate_score):  # , is_d
 
     for i in range(len(character_array)):
         if character_array[i] in chosen:
-            scores[character_array[i]] = scores_array[i]
+            scores[character_array[i]] = character_score[i]
     return max(scores, key=scores.get)
 
 
@@ -212,6 +212,7 @@ def segment_and_recognize(image, found, frame, compare):
             return False
 
         if len(same_car_plates) > 1:
+            print(same_car_plates)
             is_digits1 = [0, 0]
             is_digits2 = [0, 0]
             is_digits3 = [0, 0]
@@ -237,10 +238,19 @@ def segment_and_recognize(image, found, frame, compare):
                 dash2_pos[dash2] += 1
 
             is_digits = []
-            if np.argmax(is_digits1) == 0 or np.argmax(is_digits2) == 0 or np.argmax(is_digits3) == 0:
+            if np.argmax(is_digits1) == 0:
                 is_digits.append(False)
             else:
                 is_digits.append(True)
+            if np.argmax(is_digits2) == 0:
+                is_digits.append(False)
+            else:
+                is_digits.append(True)
+            if np.argmax(is_digits3) == 0:
+                is_digits.append(False)
+            else:
+                is_digits.append(True)
+
 
             dashes = (np.argmax(dash1_pos), np.argmax(dash2_pos))
 
@@ -276,11 +286,11 @@ def segment_and_recognize(image, found, frame, compare):
                     current_score.append(same_car_scores[j][i])
                 # print("current_char:", current_char)
                 # print("current_score:", current_score)
-                # is_digit = is_digits[0] if i < dashes[0] else is_digits[1] if dashes[0] < i < dashes[1] else is_digits[2]
+                is_digit = is_digits[0] if i < dashes[0] else is_digits[1] if dashes[0] < i < dashes[1] else is_digits[2]
 
                 new_scores = new_scores[-1:] + new_scores[:-1]
                 # Create new plate using kNN implementation
-                new_plate.append(compare_neighbours(current_char, current_score, new_scores))  # , is_digit
+                new_plate.append(compare_neighbours(current_char, current_score, new_scores, is_digit))  # , is_digit
 
         else:
             new_plate = same_car_plates[0]
@@ -893,3 +903,77 @@ def segment(image):
     # plotImage(image, str(dash1)+", "+str(dash2))
 
     # return characters, dash1, dash2, True
+
+def contours(image):
+    # plotImage(image)
+    char_height = float(0.16 * len(image[0]))
+    char_width = 0.1 * len(image[0])
+    contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    bounding_boxes = []
+    indices = []
+    areas = []
+    for i in range(len(contours)):
+        contour = contours[i]
+        # store the pixels of current contour
+        box = cv2.boundingRect(contour)
+        # print(boundingBox)
+        # plotImage(image[box[1]:box[1]+box[3],box[0]:box[0]+box[2]])
+        if box[2] > 0.7*char_width and box[2] < 1.3*char_width and box[3] > 0.7*char_height and box[3] < 1.3*char_height:
+            # print(box)
+            # pixels = np.zeros((len(image), len(image[0])))
+            # for pixel in contour:
+            #     i = pixel[0][1]
+            #     j = pixel[0][0]
+            #     pixels[i][j] = 255
+            # plotImage(pixels)
+            bounding_boxes.append(box)
+            indices.append(i)
+
+    without_child_contours = []
+    for i in range(len(bounding_boxes)):
+        index = indices[i]
+        if hierarchy[0][index][3] not in indices:
+            without_child_contours.append(bounding_boxes[i])
+        # else:
+        #     indices = np.delete(hierarchy[i][3])
+    bounding_boxes = without_child_contours
+
+    if len(bounding_boxes) < 6:
+        print("FALSEEEEEEEEEEEEEE")
+        return [], 0, 0, False
+    
+    if len(bounding_boxes) > 6:
+
+        print("meer dan 6")
+        ratios = []
+        for box in bounding_boxes:
+            ratios.append(float(box[3]/box[2]))
+        print(bounding_boxes)
+        print(ratios)
+        indices_sorted = np.argsort(ratios)
+        six_most_alike = []
+        min_diff = float('inf')
+        for i in range(len(indices_sorted)-5):
+            diff = np.abs(ratios[indices_sorted[i]] - ratios[indices_sorted[i+1]])
+            diff += np.abs(ratios[indices_sorted[i+1]] - ratios[indices_sorted[i+2]])
+            diff += np.abs(ratios[indices_sorted[i+2]] - ratios[indices_sorted[i+3]])
+            diff += np.abs(ratios[indices_sorted[i+3]] - ratios[indices_sorted[i+4]])
+            diff += np.abs(ratios[indices_sorted[i+4]] - ratios[indices_sorted[i+5]])
+            if diff < min_diff:
+                min_diff = diff 
+                six_most_alike = [bounding_boxes[i],bounding_boxes[i+1],bounding_boxes[i+2],bounding_boxes[i+3],bounding_boxes[i+4],bounding_boxes[i+5]]
+        print(six_most_alike)
+        bounding_boxes = six_most_alike
+    
+    bounding_boxes = sorted(bounding_boxes)
+    character_images = []
+    gaps = []
+    for i in range(len(bounding_boxes)):
+        character_images.append(image[bounding_boxes[i][1]:bounding_boxes[i][1]+bounding_boxes[i][3],bounding_boxes[i][0]:bounding_boxes[i][0]+bounding_boxes[i][2]])
+        if i != 0:
+            gaps.append(bounding_boxes[i][0]-bounding_boxes[i-1][0]+bounding_boxes[i-1][2])
+    gap_indices = np.argsort(gaps)
+    dash1 = min(gap_indices[-1], gap_indices[-2]) + 1
+    dash2 = max(gap_indices[-1], gap_indices[-2]) + 2
+
+    return character_images, dash1, dash2, True

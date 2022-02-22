@@ -55,41 +55,56 @@ Hints:
 """
 
 
-def compare_neighbours(character_array, scores_array, is_digit):
-    # TODO what to do with ties?
-    #  weights? -> lower score better
+def compare_neighbours(character_array, character_score, plate_score):  # , is_digit
     neighbours = {}
-    for char in character_array:
-        if char.isdigit() != is_digit:
-            continue
+    # print(character_array)
+    # print(character_score)
+    # print(plate_score)
+    for i, char in enumerate(character_array):
+        # if char.isdigit() != is_digit:
+        #     continue
+
+        weight = character_score[i] / plate_score[i][1] if plate_score[i][1] != 0 else 0  # plate_score[i][1]
+        # print(weight)
         if char in neighbours:
-            neighbours[char] += 1
+            neighbours[char] += weight
         else:
-            neighbours[char] = 1
+            neighbours[char] = weight
+
+    # print(neighbours)
+
+    return max(neighbours, key=neighbours.get)
 
 
-    best = max(neighbours, key=neighbours.get)
+# def compare_neighbours(character_array, scores_array, is_digit):
+#     # TODO what to do with ties?
+#     #  weights? -> lower score better
+#     neighbours = {}
+#     for char in character_array:
+#         if char.isdigit() != is_digit:
+#             continue
+#         if char in neighbours:
+#             neighbours[char] += 1
+#         else:
+#             neighbours[char] = 1
+#
+#
+#     best = max(neighbours, key=neighbours.get)
+#
+#     chosen = [best]
+#     for key, value in neighbours.items():
+#         if key not in chosen and value == neighbours[best]:
+#             chosen.append(key)
+#     if len(chosen) == 1:
+#         return chosen[0]
+#
+#     scores = {}
+#
+#     for i in range(len(character_array)):
+#         if character_array[i] in chosen:
+#             scores[character_array[i]] = scores_array[i]
+#     return max(scores, key=scores.get)
 
-    chosen = [best]
-    for key, value in neighbours.items():
-        if key not in chosen and value == neighbours[best]:
-            chosen.append(key)
-    if len(chosen) == 1:
-        return chosen[0]
-
-    scores = {}
-
-    for i in range(len(character_array)):
-        if character_array[i] in chosen:
-            scores[character_array[i]] = scores_array[i]
-    return max(scores, key=scores.get)
-
-    # for info in character_array:
-    #     weight = 1 / (info[1] / info[2][1]) if info[2][1] and (info[1] / info[2][1]) != 0 else 0
-    #     if info[0] in neighbours:
-    #         neighbours[info[0]] += weight
-    # else:
-    #     neighbours[info[0]] = weight
 
 # TODO check -
 # def get_final_plate(character_array):
@@ -120,6 +135,7 @@ def segment_and_recognize(image, found, frame, compare):
     append_known_plates = False
     plate_info = []
     recognized_chars = []
+
     # make sure no errors occur
     if len(image) > 1 and len(image[0]) > 1:
         binary = apply_isodata_thresholding(image)
@@ -169,23 +185,19 @@ def segment_and_recognize(image, found, frame, compare):
         unique, counts = np.unique(same_car_plates, return_counts=True)
         if max(counts) > 0.75 * len(same_car_plates):
             same_car_plates = [unique[np.argmax(counts)]]
+            same_car_scores = [scores_final]
             compare = True
 
     if compare:
         # Final frame of same plate, therefore time to compare
-        print("Same_car_plates:", same_car_plates)
-        print("Same_car_scores:", same_car_scores)
+        # print("Same_car_scores:", same_car_scores)
+        # print("Same_car_plates:", same_car_plates)
 
         if len(same_car_plates) == 0:
             # Localization failed, return
             # TODO check if return is correct (if any functionality after if statement is necessary)
             return False
 
-        # new_scores = []
-        # for i, score in enumerate(same_car_scores):
-        #     new_scores.append((same_car_plates[i], sum(score)))
-        # new_plate = sorted(new_scores, key=lambda x: x[1])[0][0]
-        # print(new_plate)
         if len(same_car_plates) > 1:
             is_digits1 = [0, 0]
             is_digits2 = [0, 0]
@@ -229,6 +241,11 @@ def segment_and_recognize(image, found, frame, compare):
                                                                                     dashes[0]:dashes[1] - 1] + '-' + \
                                              same_car_plates[i][dashes[1] - 1:]
 
+            # Get score of full plate
+            new_scores = []
+            for i, score in enumerate(same_car_scores):
+                new_scores.append((same_car_plates[i], sum(score)))
+
             # Compare plates to each other
             for i, char in enumerate(same_car_plates[-1]):
                 if char == '-':
@@ -237,19 +254,21 @@ def segment_and_recognize(image, found, frame, compare):
                 current_char = [char]
                 current_score = [same_car_scores[-1][i]]
                 # Loop over all characters in last found plate
-                for j in range(len(same_car_plates)):
-                    current_plate = same_car_plates[j]
-                    current_scores = same_car_scores[j]
+                for j, current_plate in enumerate(same_car_plates):
                     # Loop over all other plates of same car
                     if current_plate is same_car_plates[-1]:
                         continue
 
                     current_char.append(current_plate[i])
-                    current_score.append(current_scores[i])
+                    current_score.append(same_car_scores[j][i])
+                # print("current_char:", current_char)
+                # print("current_score:", current_score)
+                # is_digit = is_digits[0] if i < dashes[0] else is_digits[1] if dashes[0] < i < dashes[1] else is_digits[2]
 
+                new_scores = new_scores[-1:] + new_scores[:-1]
                 # Create new plate using kNN implementation
-                is_digit = is_digits[0] if i < dashes[0] else is_digits[1] if dashes[0] < i < dashes[1] else is_digits[2]
-                new_plate.append(compare_neighbours(current_char, current_score, is_digit))
+                new_plate.append(compare_neighbours(current_char, current_score, new_scores))  # , is_digit
+
         else:
             new_plate = same_car_plates[0]
 

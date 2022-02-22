@@ -46,14 +46,32 @@ def get_bounding_box(image):
 
 
 def find_plate(image):
-    # apply yellow mask
+    # Apply yellow mask
     mask = apply_yellow_mask(image)
 
-    # make grayscale
-    gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    # plotImage(mask)
 
-    # get all contours
+    # Convert to grayscale and apply gaussian
+    gray = apply_gaussian(cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY))
+
+    # Canny
+    edges = cv2.Canny(gray, 100, 200)
+
+    # Remove noise and connect rectangle that encompasses license plate
+    edges = cv2.erode(cv2.dilate(edges, np.ones((3, 3))), np.ones((3, 3)))
+
+    # Get all contours
     contours, hierarchy = cv2.findContours(gray, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+
+    # TODO add checks
+    # 0 - 20 contours, select only licence plate
+    # Must be rectangle with certain ratio's
+    # if less than 1-2% of image size, then discard (noise)
+    # if more than 20-30%, then discard (too big)
+    # cv2.minAreaRect(c)
+    # if area contour < 50% of whole rectangle size, since no rotation bigger than specific rotation, discard (too large rotation)
+    # for minarearect, width height -> if aspect ratio not between [3-7.5] (change value), then discard (wrong ratio)
+    # for some images, more than 1 licence plate passes these checks
 
     count = 0
     # some variables for further use
@@ -66,9 +84,18 @@ def find_plate(image):
     # choose the best contour
     for c in contours:
 
-        # skip the ones with less than 200 pixels
-        if len(c) < 200:
+        # skip the ones with less than 200 pixels or greater than 20% of image size
+        if len(c) < 200:  # or len(c) < 0.02 * len(image) or len(c) > 0.2 * len(image):
             continue
+
+        # DEBUGGING
+        # img_contours = np.zeros(image.shape)
+        # cv2.drawContours(img_contours, c, -1, (0, 255, 0), 3)
+        # plotImage(img_contours)
+        # print("this:", c.shape)
+        # print(image.shape)
+        # print("if less than:", 0.02 * len(image) * len(image[0]))
+        # print("if greater than:", 0.2 * len(image) * len(image[0]))
 
         # store the pixels of current contour
         pixels = np.zeros((len(image), len(image[0])))
@@ -89,12 +116,13 @@ def find_plate(image):
         mini, maxi, minj, maxj = get_bounding_box(rotated)
         width = maxj - minj
         height = maxi - mini
+        ratio2 = width / height
+
+        if width < 90 or height < 20 or ratio2 < 2:
+            continue
 
         r = cv2.warpAffine(image, M, (len(image[0]), len(image)))
         # plotImage(r[mini:maxi, minj:maxj])
-
-        if width < 90 or height < 20:
-            continue
 
         diff = float(np.abs(float(ratio - float(width / height))))
         differences[count] = diff
@@ -109,14 +137,13 @@ def find_plate(image):
     final_M = rotate_matrices[chosen]
     final_box = boxes[chosen]
     rotated = cv2.warpAffine(image, final_M, (len(image[0]), len(image)))
-    return rotated[final_box[0]:final_box[1]+1,final_box[2]:final_box[3]+1], True
+    return rotated[final_box[0]:final_box[1] + 1, final_box[2]:final_box[3] + 1], True
 
 
 def apply_yellow_mask(image):
-    image = apply_gaussian(image)
     # Define color range
-    colorMin = np.array([1, 60, 60])
-    colorMax = np.array([26, 255, 255])
+    colorMin = np.array([6, 100, 100])
+    colorMax = np.array([30, 255, 255])
 
     # Segment only the selected color from the image and leave out all the rest (apply a mask)
     hsi = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -126,5 +153,6 @@ def apply_yellow_mask(image):
     masked = cv2.cvtColor(masked, cv2.COLOR_HSV2RGB)
     return masked
 
+
 def apply_gaussian(image):
-    return cv2.filter2D(image, -1, cv2.getGaussianKernel(30, 10))
+    return cv2.filter2D(image, -1, cv2.getGaussianKernel(5, 5))

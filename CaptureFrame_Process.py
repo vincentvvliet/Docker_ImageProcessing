@@ -56,7 +56,7 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
         ret, frame = cap.read()
         if ret == True:
             # Frame skipping s.t. Category IV is skipped and frames are not on boundary of interval in evaluator
-            if (count - 1) % 18 == 0 and count > 0:
+            if (count - 1) % 8 == 0 and count > 0:
                 print(count)
 
                 plate, found = find_plate(frame)
@@ -97,11 +97,8 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
 
                 # print("same_car size:", len(same_car))
                 if not done_with_car:
-                    done_with_car = segment_and_recognize(plate, found, count, compare)
+                    segment_and_recognize(plate, found, count, compare)
                     write(recognized_plates, save_path)
-                # TODO when finished: remove this write and
-                #  uncomment writing after processing whole video
-                # write(recognized_plates, save_path)
 
                 # Press Q on keyboard to  exit
                 if cv2.waitKey(25) & 0xFF == ord('q'):
@@ -118,7 +115,7 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
     cv2.destroyAllWindows()
 
     # Write to file
-    write(recognized_plates, save_path)
+    # write(recognized_plates, save_path)
 
 
 def write(plates, save_path):

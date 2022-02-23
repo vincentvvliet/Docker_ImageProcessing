@@ -96,9 +96,9 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
                         same_car.append([desc, 30])
 
                 # print("same_car size:", len(same_car))
-                if not done_with_car:
-                    done_with_car = segment_and_recognize(plate, found, count, compare)
-                    write(recognized_plates, save_path)
+                # if not done_with_car:
+                done_with_car = segment_and_recognize(plate, found, count, compare)
+                write(recognized_plates, save_path)
 
                 # Press Q on keyboard to  exit
                 if cv2.waitKey(25) & 0xFF == ord('q'):

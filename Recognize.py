@@ -167,14 +167,15 @@ def segment_and_recognize(image, found, frame, compare):
     # recognized_plates.append(plate_info)
     # return True
 
-    if len(same_car_plates) > 1:
-        unique, counts = np.unique(same_car_plates, return_counts=True)
-        if max(counts) > 0.75 * len(same_car_plates):
-            same_car_plates = [unique[np.argmax(counts)]]
-            same_car_scores = [scores_final]
-            compare = True
+    # if len(same_car_plates) > 1:
+    #     unique, counts = np.unique(same_car_plates, return_counts=True)
+    #     if max(counts) > 0.75 * len(same_car_plates):
+    #         same_car_plates = [unique[np.argmax(counts)]]
+    #         same_car_scores = [scores_final]
+    #         compare = True
 
     if compare:
+        print(same_car_plates)
         # Final frame of same plate, therefore time to compare
         # print("Same_car_scores:", same_car_scores)
         # print("Same_car_plates:", same_car_plates)
@@ -184,82 +185,97 @@ def segment_and_recognize(image, found, frame, compare):
             # same_car_plates = [recognized]
             return False
 
-        if len(same_car_plates) > 1:
-            is_digits1 = [0, 0]
-            is_digits2 = [0, 0]
-            is_digits3 = [0, 0]
-            dash1_pos = np.zeros(8)
-            dash2_pos = np.zeros(8)
-            for plate in same_car_plates:
-                dash1 = plate.index('-')
-                dash2 = plate.index('-', dash1 + 1)
-                if plate[dash1 - 1].isdigit():
-                    is_digits1[1] += 1
-                else:
-                    is_digits1[0] += 1
-                if plate[dash1 + 1].isdigit():
-                    is_digits2[1] += 1
-                else:
-                    is_digits2[0] += 1
-                if plate[dash2 + 1].isdigit():
-                    is_digits3[1] += 1
-                else:
-                    is_digits3[0] += 1
-
-                dash1_pos[dash1] += 1
-                dash2_pos[dash2] += 1
-
-            is_digits = []
-            is_digits.append(False) if np.argmax(is_digits1) == 0 else is_digits.append(True)
-            is_digits.append(False) if np.argmax(is_digits2) == 0 else is_digits.append(True)
-            is_digits.append(False) if np.argmax(is_digits3) == 0 else is_digits.append(True)
-
-            dashes = (np.argmax(dash1_pos), np.argmax(dash2_pos))
-
-            if len(dashes) > 1:
-                for i in range(len(same_car_plates)):
-                    dash1 = same_car_plates[i].index('-')
-                    dash2 = same_car_plates[i].index('-', dash1)
-                    if dash1 != dashes[0] or dash2 != dashes[1]:
-                        same_car_plates[i] = same_car_plates[i].replace('-', '')
-                        same_car_plates[i] = same_car_plates[i][:dashes[0]] + '-' + same_car_plates[i][
-                                                                                    dashes[0]:dashes[1] - 1] + '-' + \
-                                             same_car_plates[i][dashes[1] - 1:]
-
-            # Get score of full plate
-            new_scores = []
-            for i, score in enumerate(same_car_scores):
-                new_scores.append((same_car_plates[i], sum(score)))
-
-            # Compare plates to each other
-            for i, char in enumerate(same_car_plates[-1]):
-                if char == '-':
-                    new_plate.append('-')
-                    continue
-                current_char = [char]
-                current_score = [same_car_scores[-1][i]]
-                # Loop over all characters in last found plate
-                for j, current_plate in enumerate(same_car_plates):
-                    # Loop over all other plates of same car
-                    if current_plate is same_car_plates[-1]:
-                        continue
-
-                    current_char.append(current_plate[i])
-                    current_score.append(same_car_scores[j][i])
-                # print("current_char:", current_char)
-                # print("current_score:", current_score)
-                is_digit = is_digits[0] if i < dashes[0] else is_digits[1] if dashes[0] < i < dashes[1] else is_digits[2]
-
-                new_scores = new_scores[-1:] + new_scores[:-1]
-                # Create new plate using kNN implementation
-                new_plate.append(compare_neighbours(current_char, current_score, new_scores, is_digit))  #
-
+        unique, counts = np.unique(same_car_plates, return_counts=True)
+        best = max(counts)
+        plates = []
+        for i in range(len(counts)):
+            if counts[i] == best:
+                plates.append(unique[i])
+        if len(plates) == 1:
+            final_plate = plates[0]
         else:
-            new_plate = same_car_plates[0]
+            scores_per_plate = np.zeros(len(plates))
+            for i in range(len(plates)):
+                for j in range(len(same_car_plates)):
+                    if same_car_plates[j] == plates[i]:
+                        scores_per_plate[i] += sum(same_car_scores[j])
+            final_plate = plates[np.argmin(scores_per_plate)]
+        # if len(same_car_plates) > 1:
+        #     is_digits1 = [0, 0]
+        #     is_digits2 = [0, 0]
+        #     is_digits3 = [0, 0]
+        #     dash1_pos = np.zeros(8)
+        #     dash2_pos = np.zeros(8)
+        #     for plate in same_car_plates:
+        #         dash1 = plate.index('-')
+        #         dash2 = plate.index('-', dash1 + 1)
+        #         if plate[dash1 - 1].isdigit():
+        #             is_digits1[1] += 1
+        #         else:
+        #             is_digits1[0] += 1
+        #         if plate[dash1 + 1].isdigit():
+        #             is_digits2[1] += 1
+        #         else:
+        #             is_digits2[0] += 1
+        #         if plate[dash2 + 1].isdigit():
+        #             is_digits3[1] += 1
+        #         else:
+        #             is_digits3[0] += 1
 
-        # Create new plate using kNN implementation and format plate
-        final_plate = format_plate(new_plate)  # get_final_plate()
-        # print("final plate:", final_plate)
+        #         dash1_pos[dash1] += 1
+        #         dash2_pos[dash2] += 1
+
+        #     is_digits = []
+        #     is_digits.append(False) if np.argmax(is_digits1) == 0 else is_digits.append(True)
+        #     is_digits.append(False) if np.argmax(is_digits2) == 0 else is_digits.append(True)
+        #     is_digits.append(False) if np.argmax(is_digits3) == 0 else is_digits.append(True)
+
+        #     dashes = (np.argmax(dash1_pos), np.argmax(dash2_pos))
+
+        #     if len(dashes) > 1:
+        #         for i in range(len(same_car_plates)):
+        #             dash1 = same_car_plates[i].index('-')
+        #             dash2 = same_car_plates[i].index('-', dash1)
+        #             if dash1 != dashes[0] or dash2 != dashes[1]:
+        #                 same_car_plates[i] = same_car_plates[i].replace('-', '')
+        #                 same_car_plates[i] = same_car_plates[i][:dashes[0]] + '-' + same_car_plates[i][
+        #                                                                             dashes[0]:dashes[1] - 1] + '-' + \
+        #                                      same_car_plates[i][dashes[1] - 1:]
+
+        #     # Get score of full plate
+        #     new_scores = []
+        #     for i, score in enumerate(same_car_scores):
+        #         new_scores.append((same_car_plates[i], sum(score)))
+
+        #     # Compare plates to each other
+        #     for i, char in enumerate(same_car_plates[-1]):
+        #         if char == '-':
+        #             new_plate.append('-')
+        #             continue
+        #         current_char = [char]
+        #         current_score = [same_car_scores[-1][i]]
+        #         # Loop over all characters in last found plate
+        #         for j, current_plate in enumerate(same_car_plates):
+        #             # Loop over all other plates of same car
+        #             if current_plate is same_car_plates[-1]:
+        #                 continue
+
+        #             current_char.append(current_plate[i])
+        #             current_score.append(same_car_scores[j][i])
+        #         # print("current_char:", current_char)
+        #         # print("current_score:", current_score)
+        #         is_digit = is_digits[0] if i < dashes[0] else is_digits[1] if dashes[0] < i < dashes[1] else is_digits[2]
+
+        #         new_scores = new_scores[-1:] + new_scores[:-1]
+        #         # Create new plate using kNN implementation
+        #         new_plate.append(compare_neighbours(current_char, current_score, new_scores, is_digit))  #
+
+        # else:
+        #     new_plate = same_car_plates[0]
+
+        # # Create new plate using kNN implementation and format plate
+        # final_plate = format_plate(new_plate)  # get_final_plate()
+        # # print("final plate:", final_plate)
 
         # Update variables
         plate = final_plate
@@ -269,7 +285,7 @@ def segment_and_recognize(image, found, frame, compare):
         final_frame = sum(frames) / len(frames) if len(frames) > 0 else 0
         frames = [frame]
 
-    if len(new_plate) == 0:
+    if not compare:
         # No comparison done yet, add plate
         same_car_plates.append(plate)
         same_car_scores.append(scores_final)

@@ -83,9 +83,9 @@ def find_plate(image):
         # print("if less than:", 0.02 * len(image) * len(image[0]))
         # print("if greater than:", 0.2 * len(image) * len(image[0]))
 
-        [X, Y, W, H] = cv2.boundingRect(c)
-        cropped_image = image[Y:Y + H, X:X + W]
-        plotImage(cropped_image)
+        # [X, Y, W, H] = cv2.boundingRect(c)
+        # cropped_image = image[Y:Y + H, X:X + W]
+        # plotImage(cropped_image)
 
 
         # store the pixels of current contour
@@ -139,7 +139,6 @@ def find_plate(image):
     # plotImage(rotated)
     result = rotated[int(center[1]-0.5*height):int(center[1]+0.5*height), int(center[0]-0.5*width):int(center[0]+0.5*width)]
     # result = rotated[int(center[1]-0.5*height)+1:int(center[1]+0.5*height)-1, int(center[0]-0.5*width)+1:int(center[0]+0.5*width)-1]
-    plotImage(result)
     return result, True
 
 

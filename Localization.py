@@ -83,6 +83,11 @@ def find_plate(image):
         # print("if less than:", 0.02 * len(image) * len(image[0]))
         # print("if greater than:", 0.2 * len(image) * len(image[0]))
 
+        [X, Y, W, H] = cv2.boundingRect(c)
+        cropped_image = image[Y:Y + H, X:X + W]
+        plotImage(cropped_image)
+
+
         # store the pixels of current contour
 
         # get the orientation angle and rotate the contour
@@ -126,12 +131,15 @@ def find_plate(image):
     width = widths[chosen]
     M = cv2.getRotationMatrix2D(center=center, angle=angle, scale=1)
     rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))
+
+
     # print("center: ",center)
     # print("width: ", width)
     # print("height ", height)
     # plotImage(rotated)
     result = rotated[int(center[1]-0.5*height):int(center[1]+0.5*height), int(center[0]-0.5*width):int(center[0]+0.5*width)]
     # result = rotated[int(center[1]-0.5*height)+1:int(center[1]+0.5*height)-1, int(center[0]-0.5*width)+1:int(center[0]+0.5*width)-1]
+    plotImage(result)
     return result, True
 
 

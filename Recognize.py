@@ -152,9 +152,10 @@ def segment_and_recognize(image, found, frame, compare):
     # make sure no errors occur
     if len(image) > 1 and len(image[0]) > 1:
         binary = apply_isodata_thresholding(image)
-        # binary = cv2.dilate(binary, np.ones((4,4)))
 
-        # binary = cv2.erode(binary, np.ones((4,4)))
+        # binary = cv2.erode(binary, np.ones((2,2)))        
+        # binary = cv2.dilate(binary, np.ones((2,2)))
+
         binary, found = remove_rows(binary)
         if not found:
             print("remove_rows found nothing")
@@ -209,7 +210,7 @@ def segment_and_recognize(image, found, frame, compare):
         if len(same_car_plates) == 0:
             # Localization failed, return
             # TODO check if return is correct (if any functionality after if statement is necessary)
-            return False
+            same_car_plates = [plate]
 
         if len(same_car_plates) > 1:
             is_digits1 = [0, 0]
@@ -302,7 +303,7 @@ def segment_and_recognize(image, found, frame, compare):
         append_known_plates = True
         same_car_plates = []
         same_car_scores = []
-        final_frame = sum(frames) / len(frames)
+        final_frame = sum(frames) / len(frames) if len(frames) > 0 else 0
         frames = [frame]
 
     if len(new_plate) == 0:
@@ -904,7 +905,9 @@ def segment(image):
     # return characters, dash1, dash2, True
 
 def contours(image):
-    # plotImage(image)
+    image = cv2.erode(image, np.ones((1,1)))
+    image = cv2.dilate(image, np.ones((1,1)))
+    plotImage(image)
     char_height = float(0.16 * len(image[0]))
     char_width = 0.1 * len(image[0])
     contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)

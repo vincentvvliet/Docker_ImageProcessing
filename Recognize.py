@@ -101,7 +101,7 @@ def segment_and_recognize(image, found, frame, compare):
     # return immediately when nothing was not found in localization
     if not found:
         print('localization was wrong')
-        return False
+        return '', 0
 
     # default dot positions
     dot1 = 2
@@ -114,13 +114,13 @@ def segment_and_recognize(image, found, frame, compare):
     # make sure no errors occur
     if len(image) > 1 and len(image[0]) > 1:
         binary = apply_isodata_thresholding(image)
-        # binary = cv2.erode(binary, np.ones((2,2)))        
-        # binary = cv2.dilate(binary, np.ones((2,2)))
+        binary = cv2.erode(binary, np.ones((2,2)))        
+        binary = cv2.dilate(binary, np.ones((2,2)))
 
         binary, found = remove_rows(binary)
         if not found:
             print("remove_rows found nothing")
-            return False
+            return '', 0
 
         # make sure no errors occur
         if cv2.countNonZero(binary) != 0:
@@ -128,17 +128,21 @@ def segment_and_recognize(image, found, frame, compare):
             char_images, dot1, dot2, found = contours(binary)
             if not found:
                 char_images, dot1, dot2, found = segment(binary)
-            if not found:
-                return False
+                if not found:
+                    return '', 0
+                recognized_chars, score = get_recognized_chars(char_images, binary, dot1, dot2)
+            else:
+                recognized_chars, score = get_from_contours(char_images, binary, dot1, dot2)
             # testsift(char_images)
             # recognize character images
-            recognized_chars, score = get_recognized_chars(char_images, binary, dot1, dot2)
     # when the dots are at invalid positions found, or either the amount of characters found is not 6,
     # we assume it was no licence plate, so we try other contours
     if len(recognized_chars) != 6 or dot1 == 0 or dot2 == 0 or dot1 == 7 or dot2 == 7 or abs(dot1 - dot2) < 2 or abs(
             dot1 - dot2) > 4 or (dot1 > 3 and dot2 > 3) or (dot1 < 4 and dot2 < 4):
         print("invalid dot positions")
-        return False
+        print(recognized_chars)
+        print(dot1,", ",dot2)
+        return '', 0
 
     # add dots ('-') at correct positions
     recognized = []
@@ -151,157 +155,10 @@ def segment_and_recognize(image, found, frame, compare):
         scores_final.append(score[i])
     if recognized.count('-') != 2:
         print("not 2 dots")
-        return False
-
-
-
-
+        return '', 0
 
     plate = format_plate(recognized)
-    new_plate = []
-    final_frame = 0
-
-    # plate_info.append(plate)
-    # plate_info.append(frame)
-    # plate_info.append(round(frame / 12))
-    # recognized_plates.append(plate_info)
-    # return True
-
-    # if len(same_car_plates) > 1:
-    #     unique, counts = np.unique(same_car_plates, return_counts=True)
-    #     if max(counts) > 0.75 * len(same_car_plates):
-    #         same_car_plates = [unique[np.argmax(counts)]]
-    #         same_car_scores = [scores_final]
-    #         compare = True
-
-    if compare:
-        print(same_car_plates)
-        # Final frame of same plate, therefore time to compare
-        # print("Same_car_scores:", same_car_scores)
-        # print("Same_car_plates:", same_car_plates)
-
-        if len(same_car_plates) == 0:
-            # TODO check if this works
-            # same_car_plates = [recognized]
-            return False
-
-        unique, counts = np.unique(same_car_plates, return_counts=True)
-        best = max(counts)
-        plates = []
-        for i in range(len(counts)):
-            if counts[i] == best:
-                plates.append(unique[i])
-        if len(plates) == 1:
-            final_plate = plates[0]
-        else:
-            scores_per_plate = np.zeros(len(plates))
-            for i in range(len(plates)):
-                for j in range(len(same_car_plates)):
-                    if same_car_plates[j] == plates[i]:
-                        scores_per_plate[i] += sum(same_car_scores[j])
-            final_plate = plates[np.argmin(scores_per_plate)]
-        # if len(same_car_plates) > 1:
-        #     is_digits1 = [0, 0]
-        #     is_digits2 = [0, 0]
-        #     is_digits3 = [0, 0]
-        #     dash1_pos = np.zeros(8)
-        #     dash2_pos = np.zeros(8)
-        #     for plate in same_car_plates:
-        #         dash1 = plate.index('-')
-        #         dash2 = plate.index('-', dash1 + 1)
-        #         if plate[dash1 - 1].isdigit():
-        #             is_digits1[1] += 1
-        #         else:
-        #             is_digits1[0] += 1
-        #         if plate[dash1 + 1].isdigit():
-        #             is_digits2[1] += 1
-        #         else:
-        #             is_digits2[0] += 1
-        #         if plate[dash2 + 1].isdigit():
-        #             is_digits3[1] += 1
-        #         else:
-        #             is_digits3[0] += 1
-
-        #         dash1_pos[dash1] += 1
-        #         dash2_pos[dash2] += 1
-
-        #     is_digits = []
-        #     is_digits.append(False) if np.argmax(is_digits1) == 0 else is_digits.append(True)
-        #     is_digits.append(False) if np.argmax(is_digits2) == 0 else is_digits.append(True)
-        #     is_digits.append(False) if np.argmax(is_digits3) == 0 else is_digits.append(True)
-
-        #     dashes = (np.argmax(dash1_pos), np.argmax(dash2_pos))
-
-        #     if len(dashes) > 1:
-        #         for i in range(len(same_car_plates)):
-        #             dash1 = same_car_plates[i].index('-')
-        #             dash2 = same_car_plates[i].index('-', dash1)
-        #             if dash1 != dashes[0] or dash2 != dashes[1]:
-        #                 same_car_plates[i] = same_car_plates[i].replace('-', '')
-        #                 same_car_plates[i] = same_car_plates[i][:dashes[0]] + '-' + same_car_plates[i][
-        #                                                                             dashes[0]:dashes[1] - 1] + '-' + \
-        #                                      same_car_plates[i][dashes[1] - 1:]
-
-        #     # Get score of full plate
-        #     new_scores = []
-        #     for i, score in enumerate(same_car_scores):
-        #         new_scores.append((same_car_plates[i], sum(score)))
-
-        #     # Compare plates to each other
-        #     for i, char in enumerate(same_car_plates[-1]):
-        #         if char == '-':
-        #             new_plate.append('-')
-        #             continue
-        #         current_char = [char]
-        #         current_score = [same_car_scores[-1][i]]
-        #         # Loop over all characters in last found plate
-        #         for j, current_plate in enumerate(same_car_plates):
-        #             # Loop over all other plates of same car
-        #             if current_plate is same_car_plates[-1]:
-        #                 continue
-
-        #             current_char.append(current_plate[i])
-        #             current_score.append(same_car_scores[j][i])
-        #         # print("current_char:", current_char)
-        #         # print("current_score:", current_score)
-        #         is_digit = is_digits[0] if i < dashes[0] else is_digits[1] if dashes[0] < i < dashes[1] else is_digits[2]
-
-        #         new_scores = new_scores[-1:] + new_scores[:-1]
-        #         # Create new plate using kNN implementation
-        #         new_plate.append(compare_neighbours(current_char, current_score, new_scores, is_digit))  #
-
-        # else:
-        #     new_plate = same_car_plates[0]
-
-        # # Create new plate using kNN implementation and format plate
-        # final_plate = format_plate(new_plate)  # get_final_plate()
-        # # print("final plate:", final_plate)
-
-        # Update variables
-        plate = final_plate
-        append_known_plates = True
-        same_car_plates = []
-        same_car_scores = []
-        final_frame = sum(frames) / len(frames) if len(frames) > 0 else 0
-        frames = [frame]
-
-    if not compare:
-        # No comparison done yet, add plate
-        same_car_plates.append(plate)
-        same_car_scores.append(scores_final)
-        frames.append(frame)
-
-    # Append the recognised characters, frame no. and time (rounded down)
-    plate_info.append(plate)
-    plate_info.append(final_frame)
-    plate_info.append(round(final_frame / 12))
-
-    # Add to list of known plates, only if final plate is known
-    if append_known_plates:
-        recognized_plates.append(plate_info)
-    scores.append(scores_final)
-
-    return compare
+    return plate, sum(scores_final)
 
 
 def format_plate(plate):
@@ -309,6 +166,43 @@ def format_plate(plate):
     for char in plate:
         final_plate += char
     return final_plate
+
+def get_from_contours(images, plate, dot1, dot2):
+    chars = []
+    char_scores = []
+    split_points = [0, dot1, dot2 - 1, len(images)]
+    for j in range(0, 3):
+        numbers = []
+        letters = []
+        num_scores = []
+        let_scores = []
+        for jj in range(len(images)):
+            if jj >= split_points[j] and jj < split_points[j + 1]:
+                image = images[jj]
+                # cropped = cv2.erode(cropped, np.ones((3, 3)))
+                # cropped = cv2.dilate(cropped, np.ones((3, 3)))
+                # crop image to bounding box
+                bounding = cv2.boundingRect(image)
+                cropped = image[bounding[1]:bounding[1]+bounding[3],bounding[0]:bounding[0]+bounding[2]]
+                # make sure no errors occur
+                if len(cropped) < 2 or len(cropped[0]) < 2:
+                    final_scores = [float('inf')]
+                    break
+
+                # get the character with the best score
+                number, score1 = give_label_two_scores(cropped, True)
+                letter, score2 = give_label_two_scores(cropped, False)
+                numbers.append(number)
+                num_scores.append(score1)
+                letters.append(letter)
+                let_scores.append(score2)
+        if sum(num_scores) < sum(let_scores):
+            char_scores += num_scores
+            chars += numbers
+        else:
+            char_scores += let_scores
+            chars += letters
+    return chars, char_scores
 
 
 def get_recognized_chars(images, plate, dot1, dot2):
@@ -350,8 +244,8 @@ def recognize_characters(images, dot1, dot2, start_index, end_index):
                 image = images[jj]
                 # crop image to certain height
                 cropped = image[start_index:end_index]
-                cropped = cv2.erode(cropped, np.ones((3, 3)))
-                cropped = cv2.dilate(cropped, np.ones((3, 3)))
+                # cropped = cv2.erode(cropped, np.ones((3, 3)))
+                # cropped = cv2.dilate(cropped, np.ones((3, 3)))
                 # crop image to bounding box
                 bounding = cv2.boundingRect(cropped)
                 cropped = cropped[bounding[1]:bounding[1]+bounding[3],bounding[0]:bounding[0]+bounding[2]]

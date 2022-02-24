@@ -56,7 +56,7 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
         ret, frame = cap.read()
         if ret == True:
             # Frame skipping s.t. Category IV is skipped and frames are not on boundary of interval in evaluator
-            if (count - 1) % 8 == 0 and count > 0 and count < 1600:
+            if (count - 1) % 4 == 0 and count > 0:
                 print(count)
 
                 plate, found = find_plate(frame)

@@ -131,6 +131,7 @@ def find_plate(image):
     # print("height ", height)
     # plotImage(rotated)
     result = rotated[int(center[1]-0.5*height):int(center[1]+0.5*height), int(center[0]-0.5*width):int(center[0]+0.5*width)]
+    # result = rotated[int(center[1]-0.5*height)+1:int(center[1]+0.5*height)-1, int(center[0]-0.5*width)+1:int(center[0]+0.5*width)-1]
     return result, True
 
 

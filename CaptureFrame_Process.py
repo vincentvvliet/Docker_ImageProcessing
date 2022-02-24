@@ -54,8 +54,6 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
 
         # Capture frame-by-frame
         ret, frame = cap.read()
-        if not ret:
-            print("wtf hij eindigt")
         if ret == True:
             # Frame skipping s.t. Category IV is skipped and frames are not on boundary of interval in evaluator
             if (count - 1) % 8 == 0 and count > 0 and count < 1600:

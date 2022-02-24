@@ -26,24 +26,6 @@ def plotImage(img, title=""):
     plt.show()
 
 
-def get_bounding_box(image):
-    mini = len(image)
-    minj = len(image[0])
-    maxi = 0
-    maxj = 0
-    for i in range(len(image)):
-        for j in range(len(image[0])):
-            if image[i][j] != 0:
-                if i < mini:
-                    mini = i
-                if i > maxi:
-                    maxi = i
-                if j < minj:
-                    minj = j
-                if j > maxj:
-                    maxj = j
-    return mini, maxi, minj, maxj
-
 
 def find_plate(image):
     # Apply yellow mask
@@ -80,6 +62,10 @@ def find_plate(image):
     differences = {}
     boxes = []
     rotate_matrices = []
+    angles = []
+    centers = []
+    heights = []
+    widths = []
 
     # choose the best contour
     for c in contours:
@@ -98,46 +84,54 @@ def find_plate(image):
         # print("if greater than:", 0.2 * len(image) * len(image[0]))
 
         # store the pixels of current contour
-        pixels = np.zeros((len(image), len(image[0])))
-        for pixel in c:
-            i = pixel[0][1]
-            j = pixel[0][0]
-            pixels[i][j] = 255
 
         # get the orientation angle and rotate the contour
         arr = cv2.minAreaRect(c)
         angle = arr[-1]
+        center = arr[0]
         if angle < -45:
+            width = arr[1][1]
+            height = arr[1][0]
             angle = angle + 90
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated = cv2.warpAffine(pixels, M, (len(image[0]), len(image)))
+        else:
+            width = arr[1][0]
+            height = arr[1][1]
 
-        # get boundary box of this rotated version and calculate the height/width ratio
-        mini, maxi, minj, maxj = get_bounding_box(rotated)
-        width = maxj - minj
-        height = maxi - mini
         ratio2 = width / height
 
         if width < 90 or height < 20 or ratio2 < 2:
             continue
 
-        r = cv2.warpAffine(image, M, (len(image[0]), len(image)))
+        # r = cv2.warpAffine(image, M, (len(image[0]), len(image)))
         # plotImage(r[mini:maxi, minj:maxj])
 
         diff = float(np.abs(float(ratio - float(width / height))))
         differences[count] = diff
-        rotate_matrices.append(M)
-        boxes.append((mini, maxi, minj, maxj))
+        angles.append(angle)
+        centers.append(center)
+        heights.append(height)
+        widths.append(width)
+
+        # rotate_matrices.append(M)
+        # boxes.append((mini, maxi, minj, maxj))
         count += 1
 
     if len(differences) < 1:
         return np.array([]), False
 
     chosen = min(differences, key=differences.get)
-    final_M = rotate_matrices[chosen]
-    final_box = boxes[chosen]
-    rotated = cv2.warpAffine(image, final_M, (len(image[0]), len(image)))
-    return rotated[final_box[0]:final_box[1] + 1, final_box[2]:final_box[3] + 1], True
+    angle = angles[chosen]
+    center = centers[chosen]
+    height = heights[chosen]
+    width = widths[chosen]
+    M = cv2.getRotationMatrix2D(center=center, angle=angle, scale=1)
+    rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))
+    # print("center: ",center)
+    # print("width: ", width)
+    # print("height ", height)
+    # plotImage(rotated)
+    result = rotated[int(center[1]-0.5*height):int(center[1]+0.5*height), int(center[0]-0.5*width):int(center[0]+0.5*width)]
+    return result, True
 
 
 def apply_yellow_mask(image):

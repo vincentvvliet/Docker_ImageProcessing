@@ -3,6 +3,7 @@ import csv
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+from datetime import datetime
 from Localization import find_plate
 from Recognize import recognized_plates
 from Recognize import segment_and_recognize
@@ -47,6 +48,7 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
     # flann = cv2.FlannBasedMatcher(index_params, search_params)
 
     count = -1
+    start = datetime.now()
     # Read until video is completed
     while cap.isOpened():
 
@@ -97,8 +99,7 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
                 # if not done_with_car:
                 plate, score = segment_and_recognize(plate, found, count, True)
                 if plate != '':
-                    results.append((plate,score,count))
-                                
+                    results.append((plate, score, count))
 
                 # write(recognized_plates, save_path)
 
@@ -116,8 +117,10 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
     # Closes all the frames
     cv2.destroyAllWindows()
     result = into_single_plates(results)
-    write(result,save_path)
-    # write(recognized_plates, save_path)
+    write(result, save_path)
+    print("Script completed in:", datetime.now() - start)
+
+
 def into_single_plates(arr):
     result = []
     doubt = []
@@ -150,29 +153,29 @@ def into_single_plates(arr):
                 doubt_scores.append(score)
                 i += 1
             else:
-                result.append(save_format(choose_plate(same_car,same_car_scores),first_frame,last_frame))
+                result.append(save_format(choose_plate(same_car, same_car_scores), first_frame, last_frame))
                 i = i - len(doubt)
                 doubt = []
                 doubt_scores = []
                 same_car = []
                 same_car_scores = []
 
-
     if len(same_car) != 0:
-        first_frame = arr[len(arr)-len(doubt)-len(same_car)][2]
-        last_frame = arr[len(arr)-len(doubt)-1][2]
-        result.append(save_format(choose_plate(same_car,same_car_scores),first_frame,last_frame))
+        first_frame = arr[len(arr) - len(doubt) - len(same_car)][2]
+        last_frame = arr[len(arr) - len(doubt) - 1][2]
+        result.append(save_format(choose_plate(same_car, same_car_scores), first_frame, last_frame))
     if len(doubt) != 0:
-        first_frame = arr[len(arr)-len(doubt)][2]
+        first_frame = arr[len(arr) - len(doubt)][2]
         last_frame = arr[-1][2]
-        result.append(save_format(choose_plate(doubt,doubt_scores),first_frame,last_frame))
-            
+        result.append(save_format(choose_plate(doubt, doubt_scores), first_frame, last_frame))
+
     return result
 
-def save_format(plate,first_frame,last_frame):
+
+def save_format(plate, first_frame, last_frame):
     result = [plate]
-    frame = int(0.5*(first_frame+last_frame))
-    time = int(frame/12)
+    frame = int(0.5 * (first_frame + last_frame))
+    time = int(frame / 12)
     result.append(frame)
     result.append(time)
     return result
@@ -193,7 +196,6 @@ def choose_plate(same_car_plates, same_car_scores):
             if same_car_plates[j] == plates[i]:
                 scores_per_plate[i] += np.sum(same_car_scores[j])
     return plates[np.argmin(scores_per_plate)]
-
 
 
 def write(plates, save_path):

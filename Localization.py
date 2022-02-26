@@ -20,6 +20,7 @@ Hints:
 
 
 def plotImage(img, title=""):
+    """Image plotting."""
     # Display image
     plt.imshow(img, cmap=plt.cm.gray, vmin=0, vmax=255)
     plt.title(title)
@@ -28,6 +29,8 @@ def plotImage(img, title=""):
 
 
 def find_plate(image):
+    """Localization pipeline."""
+
     # Apply yellow mask
     mask = apply_yellow_mask(image)
 
@@ -35,12 +38,6 @@ def find_plate(image):
 
     # Convert to grayscale and apply gaussian
     gray = apply_gaussian(cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY))
-
-    # Canny
-    edges = cv2.Canny(gray, 100, 200)
-
-    # Remove noise and connect rectangle that encompasses license plate
-    edges = cv2.erode(cv2.dilate(edges, np.ones((3, 3))), np.ones((3, 3)))
 
     # Get all contours
     contours, hierarchy = cv2.findContours(gray, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
@@ -55,13 +52,10 @@ def find_plate(image):
     # for minarearect, width height -> if aspect ratio not between [3-7.5] (change value), then discard (wrong ratio)
     # for some images, more than 1 licence plate passes these checks
 
-    count = 0
     # some variables for further use
-    center = (int(len(image[0]) / 2), int(len(image) / 2))
+    count = 0
     ratio = float(47 / 11)
     differences = {}
-    boxes = []
-    rotate_matrices = []
     angles = []
     centers = []
     heights = []
@@ -143,6 +137,8 @@ def find_plate(image):
 
 
 def apply_yellow_mask(image):
+    """Apply mask of color range that fits the yellow licence plates."""
+
     # Define color range
     colorMin = np.array([6, 100, 100])
     colorMax = np.array([30, 255, 255])
@@ -157,4 +153,6 @@ def apply_yellow_mask(image):
 
 
 def apply_gaussian(image):
+    """Apply gaussian filtering."""
+
     return cv2.filter2D(image, -1, cv2.getGaussianKernel(5, 5))

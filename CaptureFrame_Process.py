@@ -42,13 +42,9 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
     if (cap.isOpened() == False):
         print("Error opening video stream or file")
 
-    # sift = cv2.xfeatures2d.SIFT_create()
-    # index_params = dict(algorithm=0, trees=5)
-    # search_params = dict()
-    # flann = cv2.FlannBasedMatcher(index_params, search_params)
-
     count = -1
     start = datetime.now()
+
     # Read until video is completed
     while cap.isOpened():
 
@@ -57,51 +53,20 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
         # Capture frame-by-frame
         ret, frame = cap.read()
         if ret == True:
-            # Frame skipping s.t. Category IV is skipped and frames are not on boundary of interval in evaluator
-            if (count - 1) % 9 == 0 and count > 0:
+            # Frame skipping s.t. frames are not on boundary of interval in evaluator
+            if (count - 1) % 6 == 0 and count > 0:
                 print(count)
                 plate, found = find_plate(frame)
                 if not found or len(plate) < 5 or len(plate[0]) < 100:
+                    # TODO add comment
                     continue
-                # _, desc = sift.detectAndCompute(plate, None)
-                # compare = False
 
-                # if desc is not None:
-                #     if len(same_car) != 0:
-                #         # 2nd or more occurrence of plate
-                #         if (len(same_car[-1][0]) < 2 or len(desc) < 2):
-                #             # If not enough features for k=2 kNN match, then skip frame
-                #             continue
-                #         matches = flann.knnMatch(same_car[-1][0], desc, k=2)
-                #         ratio = 0.3
-                #         match_score = 0
-                #         for m, n in matches:
-                #             if m.distance < ratio * n.distance:
-                #                 match_score += 1
-
-                #         # print("score:", match_score)
-                #         if match_score < 30 / 2.0:
-                #             # Different plate
-                #             # Only compare as soon as all frames of same plate have passed
-                #             compare = True
-                #             done_with_car = False
-                #             # Re-initialize for this plate
-                #             same_car = [[desc, match_score]]
-                #         else:
-                #             # Same plate, therefore append
-                #             same_car.append([desc, 30])
-                #             compare = False
-                #     else:
-                #         # Empty, therefore first occurrence of plate
-                #         same_car.append([desc, 30])
-
-                # print("same_car size:", len(same_car))
-                # if not done_with_car:
+                # Call pipeline
                 plate, score = segment_and_recognize(plate, found, count, True)
-                if plate != '':
-                    results.append((plate, score, count))
 
-                # write(recognized_plates, save_path)
+                if plate != '':
+                    # If plate is successfully non-empty, add to result
+                    results.append((plate, score, count))
 
                 # Press Q on keyboard to  exit
                 if cv2.waitKey(25) & 0xFF == ord('q'):
@@ -116,12 +81,20 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
 
     # Closes all the frames
     cv2.destroyAllWindows()
-    result = into_single_plates(results)
-    write(result, save_path)
+
+    # Write to file
+    write(convert_to_single_plate(results), save_path)
     print("Script completed in:", datetime.now() - start)
 
 
-def into_single_plates(arr):
+def convert_to_single_plate(arr):
+    """Convert multiple instances of a plate to a single plate.
+
+    Recognition pipeline adds all found plates to a result data structure.
+    This function finds which instances correspond to the same plate.
+    Finally, it returns an array of the most common plates.
+    """
+
     result = []
     doubt = []
     doubt_scores = []
@@ -164,6 +137,7 @@ def into_single_plates(arr):
         first_frame = arr[len(arr) - len(doubt) - len(same_car)][2]
         last_frame = arr[len(arr) - len(doubt) - 1][2]
         result.append(save_format(choose_plate(same_car, same_car_scores), first_frame, last_frame))
+
     if len(doubt) != 0:
         first_frame = arr[len(arr) - len(doubt)][2]
         last_frame = arr[-1][2]
@@ -173,6 +147,8 @@ def into_single_plates(arr):
 
 
 def save_format(plate, first_frame, last_frame):
+    """Rewrites plate into to correct format for future parsing by evaluator."""
+
     result = [plate]
     frame = int(0.5 * (first_frame + last_frame))
     time = int(frame / 12)
@@ -182,6 +158,8 @@ def save_format(plate, first_frame, last_frame):
 
 
 def choose_plate(same_car_plates, same_car_scores):
+    """Choose the most common plate in an array of plates of the same car."""
+
     unique, counts = np.unique(same_car_plates, return_counts=True)
     best = max(counts)
     plates = []
@@ -195,17 +173,20 @@ def choose_plate(same_car_plates, same_car_scores):
         for j in range(len(same_car_plates)):
             if same_car_plates[j] == plates[i]:
                 scores_per_plate[i] += np.sum(same_car_scores[j])
+
     return plates[np.argmin(scores_per_plate)]
 
 
 def write(plates, save_path):
+    """Write recognized plates to csv file."""
+
     # open the file in the write mode
     with open(save_path + '/Output.csv', 'w') as f:
         # create the csv writer
         writer = csv.writer(f)
 
+        # Add header
         header = ['License plate', 'Frame no.', 'Timestamp(seconds)']
-
         writer.writerow(header)
 
         # write a row to the csv file

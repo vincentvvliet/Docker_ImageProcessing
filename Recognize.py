@@ -94,6 +94,7 @@ def compare_neighbours(character_array, character_score, plate_score, is_digit):
 
 
 def segment_and_recognize(image, found, frame, compare):
+    """ TODO add comment """
     global same_car_plates, same_car_scores, frames
 
     # Call setup only once
@@ -119,6 +120,7 @@ def segment_and_recognize(image, found, frame, compare):
 
         binary, found = remove_rows(binary)
         if not found:
+            # TODO add comment
             print("remove_rows found nothing")
             return '', 0
 
@@ -157,17 +159,20 @@ def segment_and_recognize(image, found, frame, compare):
         print("not 2 dots")
         return '', 0
 
-    plate = format_plate(recognized)
-    return plate, sum(scores_final)
+    return format_plate(recognized), sum(scores_final)
 
 
 def format_plate(plate):
+    """Format plate so that it can be correctly parsed by evaluator."""
+
     final_plate = ''
     for char in plate:
         final_plate += char
     return final_plate
 
 def get_from_contours(images, plate, dot1, dot2):
+    """ TODO add comment """
+
     chars = []
     char_scores = []
     split_points = [0, dot1, dot2 - 1, len(images)]
@@ -206,6 +211,8 @@ def get_from_contours(images, plate, dot1, dot2):
 
 
 def get_recognized_chars(images, plate, dot1, dot2):
+    """ TODO add comment """
+
     testbram = []
     final = (0, len(plate) - 1)
     final_characters = []
@@ -231,6 +238,8 @@ def get_recognized_chars(images, plate, dot1, dot2):
 
 
 def recognize_characters(images, dot1, dot2, start_index, end_index):
+    """ TODO add comment """
+
     chars = []
     char_scores = []
     split_points = [0, dot1, dot2 - 1, len(images)]
@@ -271,6 +280,8 @@ def recognize_characters(images, dot1, dot2, start_index, end_index):
 
 
 def setup():
+    """ Setup function to be called once at the start of the pipeline. """
+
     # Setup reference characters
     letter_counter = 1  # starts at 1.bmp
     number_counter = 0
@@ -296,6 +307,8 @@ def setup():
 
 
 def difference_score(test_image, reference_character):
+    """ TODO add comment """
+
     reference_character = cv2.resize(reference_character, (len(test_image[0]), len(test_image)))
     # return the number of non-zero pixels
     return np.count_nonzero(cv2.bitwise_xor(test_image, reference_character))
@@ -303,6 +316,8 @@ def difference_score(test_image, reference_character):
 
 # get gradient method used in the lab
 def get_gradient(image):
+    """ TODO add comment """
+
     # Sobel gradient in x and y direction
     Sobel_kernel_y = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
     Sobel_kernel_x = np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
@@ -318,6 +333,8 @@ def get_gradient(image):
 
 # sift descriptor used in the lab
 def sift_descriptor(image):
+    """ TODO add comment """
+
     image = cv2.resize(image, (30, 20))
     N = 3
     result = []
@@ -339,6 +356,8 @@ def sift_descriptor(image):
 
 
 def give_label_two_scores_sift(image, is_digit):
+    """ TODO add comment """
+
     differences = {}
     desc = sift_descriptor(image)
 
@@ -356,6 +375,8 @@ def give_label_two_scores_sift(image, is_digit):
 
 
 def give_label_two_scores(test_image, is_digit):
+    """ TODO add comment """
+
     # Erode to remove noise
     test_image = cv2.erode(test_image, np.ones((2, 2)))
 
@@ -390,21 +411,9 @@ def give_label_two_scores(test_image, is_digit):
     return result_char_1, A
 
 
-def write(plates):
-    # open the file in the write mode
-    with open('Output.csv', 'w') as f:
-        # create the csv writer
-        writer = csv.writer(f)
-
-        header = ['License plate', 'Frame no.', 'Timestamp(seconds)']
-
-        writer.writerow(header)
-
-        # write a row to the csv file
-        writer.writerows(plates)
-
-
 def crop_width(image):
+    """ TODO add comment """
+
     found = False
     for j in range(len(image[0])):
         for i in range(len(image)):
@@ -423,8 +432,9 @@ def crop_width(image):
     return image
 
 
-
 def get_horizontal_positions(plate):
+    """ TODO add comment """
+
     # use epsilon, this is
     epsilon = 0.05 * len(plate[0])
     # after observing multiple plates, we saw that each character has a width of approximately 10% of the plate's width
@@ -472,18 +482,9 @@ def get_horizontal_positions(plate):
     return boxes
 
 
-def apply_thresholding(image):
-    # convert to grayscale
-    plate = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # Make use of Otsu Thresholding to make plate binary image
-    ret, thresh = cv2.threshold(plate, 120, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-    # Ensure that characters are white and background is black
-    return 255 - thresh
-
-
 def apply_isodata_thresholding(image):
+    """Apply thresholding using the ISODATA method."""
+
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     epsilon = 0.005
     # Compute the histogram and set up variables
@@ -491,7 +492,7 @@ def apply_isodata_thresholding(image):
     t = np.mean(image)
     old_t = -2 * epsilon
 
-    # Iterations of the isodata thresholding algorithm
+    # Iterations of the ISODATA thresholding algorithm
     while (abs(t - old_t) >= epsilon):
         sum1 = 0
         sum2 = 0
@@ -505,7 +506,6 @@ def apply_isodata_thresholding(image):
             sum1 = sum1 + i * hist[i]
             sum2 = sum2 + hist[i]
         m2 = sum1 / sum2
-        # TODO Calculate new tau
         old_t = t
         t = (m1 + m2) / 2
     for i in range(len(image)):
@@ -514,12 +514,13 @@ def apply_isodata_thresholding(image):
                 image[i][j] = 0
             else:
                 image[i][j] = 255
-    # image = cv2.erode(image, np.ones((1, 5)))
-    # image = cv2.dilate(image, np.ones((1,5)))
+
     return image
 
 
 def remove_rows(image):
+    """ TODO add comment """
+
     bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
     invalid_rows = []
     good_rows = []
@@ -607,6 +608,8 @@ def remove_rows(image):
 
 
 def separate(plate):
+    """ TODO add comment """
+
     # get horizontal character interval boundaries
     boxes = get_horizontal_positions(plate)
 
@@ -637,6 +640,8 @@ def separate(plate):
 
 
 def segment(image):
+    """ TODO add comment """
+
     # eroded = cv2.erode(image, np.ones((3,3)))
     # eroded = cv2.dilate(eroded, np.ones((3,3)))
     char_width = 0.1 * len(image[0])
@@ -757,8 +762,12 @@ def segment(image):
 
 
 def contours(image):
+    """ TODO add comment """
+
+    # Morphological operations
     image = cv2.erode(image, np.ones((1,1)))
     image = cv2.dilate(image, np.ones((1,1)))
+
     char_height = float(0.16 * len(image[0]))
     char_width = 0.1 * len(image[0])
     contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)

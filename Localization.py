@@ -69,9 +69,11 @@ def find_plate(image):
             width, height = height, width
             angle = angle + 90
 
+        # Discard contour if does not meet requirements to be a plate
         if width < 90 or height < 20 or width / height < 2:
             continue
 
+        # Update variables
         diff = float(np.abs(float(ratio - float(width / height))))
         differences[count] = diff
         angles.append(angle)
@@ -120,10 +122,11 @@ def apply_gaussian(image):
 
 
 def rotate(image, angle, center):
+    """Rotate image over given angle."""
     (h, w) = image.shape[:2]
 
     # Perform the rotation
-    M = cv2.getRotationMatrix2D(center, angle, scale=1.0)
+    M = cv2.getRotationMatrix2D(center, angle, scale=1)
     rotated = cv2.warpAffine(image, M, (w, h))
 
     return rotated

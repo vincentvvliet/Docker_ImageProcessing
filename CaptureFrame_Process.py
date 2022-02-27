@@ -1,11 +1,13 @@
 import csv
+from datetime import datetime
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-from datetime import datetime
+
 from Localization import find_plate
 from Recognize import segment_and_recognize
+from Recognize import setup
 
 """
 In this file, you will define your own CaptureFrame_Process funtion. In this function,
@@ -33,7 +35,6 @@ def plotImage(img, title=""):
 
 def CaptureFrame_Process(file_path, sample_frequency, save_path):
     global results
-    done_with_car = False
     # Create a VideoCapture object and read from input file
     cap = cv2.VideoCapture(file_path)
 
@@ -44,6 +45,9 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
     count = -1
     start = datetime.now()
 
+    # Call setup only once
+    setup()
+
     # Read until video is completed
     while cap.isOpened():
 
@@ -53,11 +57,11 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
         ret, frame = cap.read()
         if ret == True:
             # Frame skipping s.t. frames are not on boundary of interval in evaluator
-            if (count - 1) % 6 == 0 and count > 0:
+            if (count - 1) % 2 == 0 and count > 0:
                 print(count)
                 plate, found = find_plate(frame)
                 if not found or len(plate) < 5 or len(plate[0]) < 100:
-                    # TODO add comment
+                    # Skip invalid plates
                     continue
 
                 # Call pipeline
@@ -94,53 +98,83 @@ def convert_to_single_plate(arr):
     Finally, it returns an array of the most common plates.
     """
 
-    result = []
-    doubt = []
-    doubt_scores = []
-    same_car = []
-    same_car_scores = []
+    result = []  # this will be the result
+    doubt = []  # we will use this list to temporary store plates from a (perhaps) new car
+    doubt_scores = []  # scores of the corresponding doubtful plates
+    same_car = []  # we will use this list to store the plates found of the same car
+    same_car_scores = []  # corresponding scores
     first_frame = 0
     last_frame = 0
     i = 0
+
+    # loop over all the plates found
     while i < len(arr):
         plate = arr[i][0]
         score = arr[i][1]
         frame = arr[i][2]
         if len(same_car) == 0:
+            # ready for new car so append anyway
             first_frame = frame
             last_frame = frame
             same_car.append(plate)
             same_car_scores.append(score)
+            # increase i to jump to next plate
             i += 1
         else:
+            # check if current plate differs at most 3 chars with last plate in same_car
             if sum(1 for a, b in zip(same_car[-1], plate) if a != b) < 4:
+                # same car found, we append to same_car and also include the so called 'doubt' images if any
                 same_car += doubt + [plate]
                 same_car_scores += doubt_scores + [score]
+                # we update the variables
                 doubt = []
                 doubt_scores = []
                 last_frame = frame
+                # increase i to jump to next plate
                 i += 1
+            # we think it is not the same car, but we decide to have at max two 'doubtful' plates
             elif len(doubt) < 2:
+                # append to doubt
                 doubt.append(plate)
                 doubt_scores.append(score)
+                # increase i to jump to next plate
                 i += 1
+            # if doubt is already full (2 plates), we can assure we found a new plate
             else:
+                # we found a new plate so we choose 1 plate from same_car and store it
                 result.append(save_format(choose_plate(same_car, same_car_scores), first_frame, last_frame))
+                # jump back to the plate that was the first doubtful plate (or just the current plate if doubt was empty)
                 i = i - len(doubt)
+                # update variables again
                 doubt = []
                 doubt_scores = []
                 same_car = []
                 same_car_scores = []
 
+    # storing the last car(s) is most probably not done, so we check
     if len(same_car) != 0:
+        # store last car
         first_frame = arr[len(arr) - len(doubt) - len(same_car)][2]
         last_frame = arr[len(arr) - len(doubt) - 1][2]
         result.append(save_format(choose_plate(same_car, same_car_scores), first_frame, last_frame))
 
-    if len(doubt) != 0:
+    if len(doubt) == 1:
+        # in case of one doubting image left, we store it
+        first_frame = arr[len(arr) - len(doubt)][2]
+        last_frame = first_frame
+        result.append(save_format(doubt[0], first_frame, last_frame))
+    if len(doubt) == 2:
+        # two doubting images are left
         first_frame = arr[len(arr) - len(doubt)][2]
         last_frame = arr[-1][2]
-        result.append(save_format(choose_plate(doubt, doubt_scores), first_frame, last_frame))
+        # check if they're from the same car
+        if sum(1 for a, b in zip(doubt[0], doubt[1]) if a != b) < 4:
+            # same car, so we choose and store the chosen
+            result.append(save_format(choose_plate(doubt, doubt_scores), first_frame, last_frame))
+        else:
+            # different cars so we store them both
+            result.append(save_format(doubt[0], first_frame, first_frame))
+            result.append(save_format(doubt[1], last_frame, last_frame))
 
     return result
 
@@ -159,15 +193,20 @@ def save_format(plate, first_frame, last_frame):
 def choose_plate(same_car_plates, same_car_scores):
     """Choose the most common plate in an array of plates of the same car."""
 
+    # get unique list and corresponding frequencies
     unique, counts = np.unique(same_car_plates, return_counts=True)
+    # get counts of most common
     best = max(counts)
     plates = []
+    # check if others have same counts and store them in plates list
     for i in range(len(counts)):
         if counts[i] == best:
             plates.append(unique[i])
+    # if plates contains only one plate we return it
     if len(plates) == 1:
         return plates[0]
     scores_per_plate = np.zeros(len(plates))
+    # in case multiple plates are evenly common, choose lowest score
     for i in range(len(plates)):
         for j in range(len(same_car_plates)):
             if same_car_plates[j] == plates[i]:

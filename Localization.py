@@ -20,12 +20,11 @@ Hints:
 
 
 def plotImage(img, title=""):
-    """Image plotting."""
+    """Image plotting for debugging."""
     # Display image
     plt.imshow(img, cmap=plt.cm.gray, vmin=0, vmax=255)
     plt.title(title)
     plt.show()
-
 
 
 def find_plate(image):
@@ -42,16 +41,6 @@ def find_plate(image):
     # Get all contours
     contours, hierarchy = cv2.findContours(gray, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
-    # TODO add checks
-    # 0 - 20 contours, select only licence plate
-    # Must be rectangle with certain ratio's
-    # if less than 1-2% of image size, then discard (noise)
-    # if more than 20-30%, then discard (too big)
-    # cv2.minAreaRect(c)
-    # if area contour < 50% of whole rectangle size, since no rotation bigger than specific rotation, discard (too large rotation)
-    # for minarearect, width height -> if aspect ratio not between [3-7.5] (change value), then discard (wrong ratio)
-    # for some images, more than 1 licence plate passes these checks
-
     # some variables for further use
     count = 0
     ratio = float(47 / 11)
@@ -63,46 +52,25 @@ def find_plate(image):
 
     # choose the best contour
     for c in contours:
+        area = cv2.contourArea(c)
+        total_area = image.shape[0] * image.shape[1]
 
-        # skip the ones with less than 200 pixels or greater than 20% of image size
-        if len(c) < 200:  # or len(c) < 0.02 * len(image) or len(c) > 0.2 * len(image):
+        # skip the contours that match the following:
+        # less than 200 pixels
+        # less than 0.5% of image size (too small to be a plate)
+        # greater than 20% of image size (too large to be a plate)
+        if len(c) < 200 or area < 0.005 * total_area or area > 0.2 * total_area:
             continue
-
-        # DEBUGGING
-        # img_contours = np.zeros(image.shape)
-        # cv2.drawContours(img_contours, c, -1, (0, 255, 0), 3)
-        # plotImage(img_contours)
-        # print("this:", c.shape)
-        # print(image.shape)
-        # print("if less than:", 0.02 * len(image) * len(image[0]))
-        # print("if greater than:", 0.2 * len(image) * len(image[0]))
-
-        # [X, Y, W, H] = cv2.boundingRect(c)
-        # cropped_image = image[Y:Y + H, X:X + W]
-        # plotImage(cropped_image)
-
-
-        # store the pixels of current contour
 
         # get the orientation angle and rotate the contour
-        arr = cv2.minAreaRect(c)
-        angle = arr[-1]
-        center = arr[0]
+        (center, (width, height), angle) = cv2.minAreaRect(c)
+
         if angle < -45:
-            width = arr[1][1]
-            height = arr[1][0]
+            width, height = height, width
             angle = angle + 90
-        else:
-            width = arr[1][0]
-            height = arr[1][1]
 
-        ratio2 = width / height
-
-        if width < 90 or height < 20 or ratio2 < 2:
+        if width < 90 or height < 20 or width / height < 2:
             continue
-
-        # r = cv2.warpAffine(image, M, (len(image[0]), len(image)))
-        # plotImage(r[mini:maxi, minj:maxj])
 
         diff = float(np.abs(float(ratio - float(width / height))))
         differences[count] = diff
@@ -111,8 +79,6 @@ def find_plate(image):
         heights.append(height)
         widths.append(width)
 
-        # rotate_matrices.append(M)
-        # boxes.append((mini, maxi, minj, maxj))
         count += 1
 
     if len(differences) < 1:
@@ -123,16 +89,11 @@ def find_plate(image):
     center = centers[chosen]
     height = heights[chosen]
     width = widths[chosen]
-    M = cv2.getRotationMatrix2D(center=center, angle=angle, scale=1)
-    rotated = cv2.warpAffine(image, M, (len(image[0]), len(image)))
 
+    rotated = rotate(image, angle, center)
+    result = rotated[int(center[1] - 0.5 * height):int(center[1] + 0.5 * height),
+             int(center[0] - 0.5 * width):int(center[0] + 0.5 * width)]
 
-    # print("center: ",center)
-    # print("width: ", width)
-    # print("height ", height)
-    # plotImage(rotated)
-    result = rotated[int(center[1]-0.5*height):int(center[1]+0.5*height), int(center[0]-0.5*width):int(center[0]+0.5*width)]
-    # result = rotated[int(center[1]-0.5*height)+1:int(center[1]+0.5*height)-1, int(center[0]-0.5*width)+1:int(center[0]+0.5*width)-1]
     return result, True
 
 
@@ -156,3 +117,13 @@ def apply_gaussian(image):
     """Apply gaussian filtering."""
 
     return cv2.filter2D(image, -1, cv2.getGaussianKernel(5, 5))
+
+
+def rotate(image, angle, center):
+    (h, w) = image.shape[:2]
+
+    # Perform the rotation
+    M = cv2.getRotationMatrix2D(center, angle, scale=1.0)
+    rotated = cv2.warpAffine(image, M, (w, h))
+
+    return rotated

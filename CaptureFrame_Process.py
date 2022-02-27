@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
 from Localization import find_plate
-from Recognize import recognized_plates
 from Recognize import segment_and_recognize
 
 """
@@ -62,7 +61,7 @@ def CaptureFrame_Process(file_path, sample_frequency, save_path):
                     continue
 
                 # Call pipeline
-                plate, score = segment_and_recognize(plate, found, count, True)
+                plate, score = segment_and_recognize(plate, found)
 
                 if plate != '':
                     # If plate is successfully non-empty, add to result

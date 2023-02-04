@@ -1,7 +1,7 @@
 # License Plate Recognition
 License Plate Recognition project for CSE2225 Image Processing. This project makes use of OpenCV to read a video file containing different cars and runs an image processing pipeline to localize and recognize the letters from the license plates. The localization and recognition steps of the pipeline are explained below. The results are then converted to a csv file containing for each license plate the characters of the plate, the frame number at which it was recognized and the corresponding timestamp. The localization and recognition steps of the pipeline are seperately evaluated with localization_evaluator.py and recognition_evaluator.py respectively.
 
-More details on the later changes made to the implementation can be seen in [our report](README.md)
+More details on the later changes made to the implementation can be seen in [our report](IP_Project_resit_report.pdf).
 
 ## Plate requirements
 - Must be at least 200 pixels
